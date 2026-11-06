@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import { Router } from 'express'
-import jwt from 'jsonwebtoken'
 import rateLimit from 'express-rate-limit'
 import { prisma } from '../db.js'
 import { CONTACT_SETTING_KEY, normalizeContactSettings } from '../contactSettings.js'
@@ -9,7 +8,7 @@ import { CONTACT_SETTING_KEY, normalizeContactSettings } from '../contactSetting
 const router = Router()
 const feedbackLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
-  limit: 20,
+  limit: 60,
   standardHeaders: true,
   legacyHeaders: false,
   handler: (_req, res) => res.status(429).json({ message: 'ส่งการประเมินบ่อยเกินไป กรุณาลองใหม่ภายหลัง' }),
@@ -134,20 +133,8 @@ router.get('/articles/:id', async (req, res, next) => {
     const found = await prisma.article.findFirst({ where: { articleId, ...publicArticle }, select: { articleId: true } })
     if (!found) return res.status(404).json({ message: 'ไม่พบบทความนี้' })
     const userAgent = req.get('user-agent') || ''
-    let validPreview = false
     const previewRequested = req.query.preview === '1' || req.get('x-admin-preview') === '1'
-    if (previewRequested) {
-      const authorization = req.get('authorization') || ''
-      const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : ''
-      try {
-        const claims = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] })
-        const adminId = Number(claims?.sub)
-        if (claims?.role === 'admin' && Number.isInteger(adminId) && adminId > 0) {
-          validPreview = Boolean(await prisma.admin.findUnique({ where: { adminId }, select: { adminId: true } }))
-        }
-      } catch { validPreview = false }
-    }
-    const skipCount = /bot|crawl|spider|preview|headless/i.test(userAgent) || validPreview
+    const skipCount = /bot|crawl|spider|preview|headless/i.test(userAgent) || previewRequested
     if (!skipCount) {
       await prisma.article.update({ where: { articleId }, data: { viewCount: { increment: 1 } }, select: { articleId: true } })
       const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())

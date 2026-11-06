@@ -23,7 +23,7 @@ const parsedTrustProxy = trustProxy
   ? trustProxy.toLowerCase() === 'true' ? true : trustProxy.toLowerCase() === 'false' ? false : /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy
   : false
 const tooManyPublicRequests = (_req, res) => res.status(429).json({ message: 'มีการเรียกใช้งานระบบบ่อยเกินไป กรุณาลองใหม่ภายหลัง' })
-const publicApiLimiter = rateLimit({ windowMs: 60 * 1000, limit: 120, standardHeaders: true, legacyHeaders: false, handler: tooManyPublicRequests })
+const publicApiLimiter = rateLimit({ windowMs: 60 * 1000, limit: 600, standardHeaders: true, legacyHeaders: false, handler: tooManyPublicRequests })
 
 app.disable('x-powered-by')
 app.set('trust proxy', parsedTrustProxy)
