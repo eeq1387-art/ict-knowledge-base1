@@ -729,7 +729,15 @@ body { background: linear-gradient(180deg, #f8f6f0 0%, #f3efe6 100%); }
 .detail-aside { position: sticky; top: 16px; }
 .preview-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 18px; padding: 12px 18px; border: 1px solid var(--accent); border-left-width: 5px; border-radius: var(--radius-md); background: linear-gradient(90deg, var(--accent-soft), #fff9ed); color: var(--accent-deep); font-size: 15px; box-shadow: var(--shadow-soft); }
 .preview-banner b { color: var(--primary-strong); }
-.password-settings-form { margin-top: 24px; }
+.password-settings-form { margin-top: 6px; }
+.password-card-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.password-card-head h2 { margin: 0 0 4px; color: var(--primary-strong); font-size: 21px; }
+.password-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 5px; }
+.admin-login-card form .password-label-row label { margin-top: 0; }
+.admin-login-card form .text-action-btn, .text-action-btn { width: auto; min-height: auto; margin-top: 0; padding: 2px 6px; border: 0; background: transparent; color: var(--primary); font-size: 14px; font-weight: 600; box-shadow: none; cursor: pointer; }
+.admin-login-card form .text-action-btn:hover, .text-action-btn:hover { background: transparent; color: var(--accent-deep); text-decoration: underline; box-shadow: none; }
+.login-helper-row { display: flex; justify-content: center; margin-top: 6px; }
+.admin-login-notice { padding: 10px 12px; border: 1px solid var(--success); border-radius: 8px; background: var(--success-soft); color: var(--success); font-weight: 600; }
 @media (max-width: 780px) { .detail-aside { position: static; } }
 
 /* ---------- Footer ---------- */

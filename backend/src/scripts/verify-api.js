@@ -229,7 +229,12 @@ try {
   assert.equal((await changePassword({ currentPassword: tempPassword, newPassword: newTempPassword })).status, 200)
   assert.equal((await login(tempPassword)).status, 401)
   assert.equal((await login(newTempPassword)).status, 200)
-  console.log('✓ [8] Change password: auth guard (401), wrong/short/same password (400), success (200) & new password works')
+  assert.equal((await changePassword({ newPassword: 'Temp-Verify-Password-03' })).status, 200)
+  const resetPassword = (body) => fetch(`${BASE}/api/auth/reset-password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  assert.equal((await resetPassword({ username: tempAdminUsername, fullname: 'Wrong Name', newPassword: 'Temp-Verify-Password-04' })).status, 400)
+  assert.equal((await resetPassword({ username: tempAdminUsername, fullname: 'Verify Script', newPassword: 'Temp-Verify-Password-04' })).status, 200)
+  assert.equal((await login('Temp-Verify-Password-04')).status, 200)
+  console.log('✓ [8] Change & reset password: auth guard (401), validation (400), direct change (200) & forgot-password reset (200)')
 
   console.log('\nALL VERIFICATION CHECKS PASSED!')
 } finally {

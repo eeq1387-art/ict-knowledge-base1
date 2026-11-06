@@ -91,6 +91,7 @@ function DailyViewsChart({ rows }) {
 
 export function ContactSettings() {
   const { data, loading, error } = useAdminData('/settings/contact')
+  const [tab, setTab] = useState('contact')
   const [draft, setDraft] = useState(null)
   const [notice, setNotice] = useState('')
   const [actionError, setActionError] = useState('')
@@ -118,19 +119,22 @@ export function ContactSettings() {
   }
 
   return <section className="admin-content">
-    <div className="admin-title-row"><div><span className="eyebrow">ช่องทางติดต่อ</span><h1>ตั้งค่าข้อมูลติดต่อ</h1><p className="admin-muted">ข้อมูลนี้จะแสดงในหน้าคลังความรู้และคู่มือ</p></div></div>
-    <Alert type="success">{notice}</Alert><Alert>{actionError || error}</Alert>
-    {loading ? <p className="admin-loading">กำลังโหลดข้อมูลติดต่อ...</p> : <form className="admin-form contact-settings-form" onSubmit={submit}>
-      <div className="admin-form-grid">{contactFields.map(([field, label]) => <label key={field}>{label}<input type="text" maxLength={300} value={form[field]} onChange={setField(field)} placeholder={`ระบุ${label}`}/></label>)}</div>
-      <label>หมายเหตุ <small>ไม่เกิน 300 ตัวอักษร</small><textarea rows={3} maxLength={300} value={form.note} onChange={setField('note')} placeholder="ข้อมูลเพิ่มเติมสำหรับผู้ติดต่อ"/></label>
-      <div className="admin-form-actions"><button className="admin-primary-link" disabled={busy || Boolean(error)}>{busy ? 'กำลังบันทึก...' : 'บันทึกข้อมูลติดต่อ'}</button></div>
-    </form>}
-    <PasswordSettings/>
+    <div className="admin-title-row"><div><span className="eyebrow">SYSTEM SETTINGS</span><h1>ตั้งค่าระบบและบัญชีเจ้าหน้าที่</h1><p className="admin-muted">จัดการข้อมูลติดต่อของศูนย์ ICT และตั้งค่ารหัสผ่านสำหรับเจ้าหน้าที่</p></div></div>
+    <div className="admin-filter-row"><div className="admin-tabs"><button type="button" className={tab === 'contact' ? 'active' : ''} onClick={() => setTab('contact')}>ข้อมูลติดต่อศูนย์ ICT</button><button type="button" className={tab === 'security' ? 'active' : ''} onClick={() => setTab('security')}>รหัสผ่านและความปลอดภัย</button></div></div>
+    {tab === 'contact' ? <>
+      <Alert type="success">{notice}</Alert><Alert>{actionError || error}</Alert>
+      {loading ? <p className="admin-loading">กำลังโหลดข้อมูลติดต่อ...</p> : <form className="admin-form contact-settings-form" onSubmit={submit}>
+        <div className="admin-form-grid">{contactFields.map(([field, label]) => <label key={field}>{label}<input type="text" maxLength={300} value={form[field]} onChange={setField(field)} placeholder={`ระบุ${label}`}/></label>)}</div>
+        <label>หมายเหตุ <small>ไม่เกิน 300 ตัวอักษร</small><textarea rows={3} maxLength={300} value={form.note} onChange={setField('note')} placeholder="ข้อมูลเพิ่มเติมสำหรับผู้ติดต่อ"/></label>
+        <div className="admin-form-actions"><button className="admin-primary-link" disabled={busy || Boolean(error)}>{busy ? 'กำลังบันทึก...' : 'บันทึกข้อมูลติดต่อ'}</button></div>
+      </form>}
+    </> : <PasswordSettings/>}
   </section>
 }
 
 function PasswordSettings() {
-  const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [form, setForm] = useState({ newPassword: '', confirmPassword: '' })
+  const [showPass, setShowPass] = useState(false)
   const [notice, setNotice] = useState('')
   const [actionError, setActionError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -144,23 +148,27 @@ function PasswordSettings() {
     if (form.newPassword !== form.confirmPassword) return setActionError('รหัสผ่านใหม่และการยืนยันไม่ตรงกัน')
     setBusy(true)
     try {
-      const result = await api.put('/auth/password', { currentPassword: form.currentPassword, newPassword: form.newPassword })
+      const result = await api.put('/auth/password', { newPassword: form.newPassword })
       setNotice(result.message || 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว')
-      setForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      setForm({ newPassword: '', confirmPassword: '' })
     } catch (err) { setActionError(err.message) }
     finally { setBusy(false) }
   }
 
   return <form className="admin-form password-settings-form" onSubmit={submit}>
-    <h2>เปลี่ยนรหัสผ่านเจ้าหน้าที่</h2>
-    <p className="admin-muted">รหัสผ่านใหม่ต้องมี 12–200 ตัวอักษร แนะนำให้ผสมตัวอักษร ตัวเลข และสัญลักษณ์</p>
-    <Alert type="success">{notice}</Alert><Alert>{actionError}</Alert>
-    <label>รหัสผ่านปัจจุบัน<input type="password" autoComplete="current-password" required maxLength={200} value={form.currentPassword} onChange={setField('currentPassword')}/></label>
-    <div className="admin-form-grid">
-      <label>รหัสผ่านใหม่<input type="password" autoComplete="new-password" required minLength={12} maxLength={200} value={form.newPassword} onChange={setField('newPassword')}/></label>
-      <label>ยืนยันรหัสผ่านใหม่<input type="password" autoComplete="new-password" required minLength={12} maxLength={200} value={form.confirmPassword} onChange={setField('confirmPassword')}/></label>
+    <div className="password-card-head">
+      <div>
+        <h2>ตั้งรหัสผ่านใหม่ของเจ้าหน้าที่</h2>
+        <p className="admin-muted">คุณเข้าสู่ระบบในฐานะเจ้าหน้าที่แล้ว สามารถกำหนดรหัสผ่านใหม่ (12–200 ตัวอักษร) ได้ทันทีโดยไม่ต้องกรอกรหัสเดิม</p>
+      </div>
+      <button type="button" className="admin-secondary-link" onClick={() => setShowPass((v) => !v)}>{showPass ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}</button>
     </div>
-    <div className="admin-form-actions"><button className="admin-primary-link" disabled={busy}>{busy ? 'กำลังบันทึก...' : 'เปลี่ยนรหัสผ่าน'}</button></div>
+    <Alert type="success">{notice}</Alert><Alert>{actionError}</Alert>
+    <div className="admin-form-grid">
+      <label>รหัสผ่านใหม่ <small>({form.newPassword.length}/12 ตัวอักษรขั้นต่ำ)</small><input type={showPass ? 'text' : 'password'} autoComplete="new-password" required minLength={12} maxLength={200} value={form.newPassword} onChange={setField('newPassword')} placeholder="กรอกรหัสผ่านใหม่ 12 ตัวอักษรขึ้นไป"/></label>
+      <label>ยืนยันรหัสผ่านใหม่ <small>{form.confirmPassword && (form.newPassword === form.confirmPassword ? '✓ รหัสผ่านตรงกัน' : '× รหัสผ่านยังไม่ตรงกัน')}</small><input type={showPass ? 'text' : 'password'} autoComplete="new-password" required minLength={12} maxLength={200} value={form.confirmPassword} onChange={setField('confirmPassword')} placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"/></label>
+    </div>
+    <div className="admin-form-actions"><button className="admin-primary-link" disabled={busy}>{busy ? 'กำลังบันทึก...' : 'บันทึกรหัสผ่านใหม่'}</button></div>
   </form>
 }
 
