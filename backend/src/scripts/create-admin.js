@@ -12,11 +12,14 @@ if (!username || username.length > 80 || !fullname || fullname.length > 160 || !
 } else {
   try {
     const passwordHash = await bcrypt.hash(password, 12)
-    await prisma.admin.create({ data: { username, fullname, password: passwordHash } })
-    console.log(`Created admin account: ${username}`)
+    await prisma.admin.upsert({
+      where: { username },
+      update: { fullname, password: passwordHash },
+      create: { username, fullname, password: passwordHash },
+    })
+    console.log('Admin account created or password updated successfully.')
   } catch (error) {
-    if (error.code === 'P2002') console.error('An admin account with that username already exists.')
-    else console.error('Could not create admin account:', error.message)
+    console.error('Could not create/update admin account:', error.message)
     process.exitCode = 1
   } finally {
     await prisma.$disconnect()
