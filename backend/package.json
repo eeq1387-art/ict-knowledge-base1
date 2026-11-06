@@ -10,7 +10,8 @@
     "db:seed": "node src/scripts/seed.js",
     "secret:generate": "node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\"",
     "test": "node src/scripts/verify-api.js",
-    "logs:prune": "node src/scripts/prune-logs.js"
+    "logs:prune": "node src/scripts/prune-logs.js",
+    "stats:reset": "node src/scripts/reset-stats.js"
   },
   "keywords": [],
   "author": "",
