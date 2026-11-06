@@ -1,16 +1,6 @@
 import { createHash } from 'node:crypto'
 import { prisma } from '../db.js'
-import { CONTACT_SETTING_KEY } from '../contactSettings.js'
-
-const defaultContact = {
-  phone: '043-221-555 ต่อ 101',
-  lineId: '@ict-khonkaen',
-  lineUrl: 'https://line.me/R/ti/p/@ict-khonkaen',
-  email: 'helpdesk@ict-khonkaen.go.th',
-  location: 'ชั้น 3 อาคารศูนย์เทคโนโลยีสารสนเทศ ขอนแก่น',
-  hours: 'จันทร์ – ศุกร์ เวลา 08:30 – 16:30 น. (เว้นวันหยุดราชการ)',
-  note: 'กรณีแจ้งเหตุขัดข้องเร่งด่วน กรุณาระบุชื่อหน่วยงานและอาการที่พบ',
-}
+import { CONTACT_SETTING_KEY, DEFAULT_KKICT_CONTACT as defaultContact } from '../contactSettings.js'
 
 const sampleSearches = [
   { term: 'wifi', resultCount: 2, count: 14 },
@@ -105,10 +95,11 @@ async function main() {
     }
   }
 
-  const existingContact = await prisma.siteSetting.findUnique({ where: { key: CONTACT_SETTING_KEY } })
-  if (!existingContact) {
-    await prisma.siteSetting.create({ data: { key: CONTACT_SETTING_KEY, value: defaultContact } })
-  }
+  await prisma.siteSetting.upsert({
+    where: { key: CONTACT_SETTING_KEY },
+    create: { key: CONTACT_SETTING_KEY, value: defaultContact },
+    update: { value: defaultContact },
+  })
 
   await prisma.searchLog.deleteMany({ where: { term: { in: sampleSearches.map((item) => item.term) } } })
   const searchRows = sampleSearches.flatMap((item, groupIndex) =>
