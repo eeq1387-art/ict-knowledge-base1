@@ -1,0 +1,98 @@
+// ICT Center Khon Kaen knowledge base data model.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  HIDDEN
+}
+
+model Admin {
+  adminId    Int      @id @default(autoincrement()) @map("admin_id")
+  username   String   @unique @db.VarChar(80)
+  // Store only a bcrypt hash here, never a plain-text password.
+  password   String   @map("password_hash") @db.VarChar(255)
+  fullname   String   @db.VarChar(160)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("admins")
+}
+
+model Category {
+  categoryId   Int       @id @default(autoincrement()) @map("category_id")
+  categoryName String    @unique @map("category_name") @db.VarChar(160)
+  description  String?   @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  articles     Article[]
+
+  @@map("categories")
+}
+
+model Article {
+  articleId   Int           @id @default(autoincrement()) @map("article_id")
+  categoryId  Int           @map("category_id")
+  title       String        @db.VarChar(240)
+  content     String        @db.Text
+  steps       Json?
+  keywords    String[]      @default([])
+  image       String?       @db.VarChar(1024)
+  pdfFile     String?       @map("pdf_file") @db.VarChar(1024)
+  viewCount   Int           @default(0) @map("view_count")
+  status      ArticleStatus @default(DRAFT)
+  featured    Boolean       @default(false)
+  publishedAt DateTime?     @map("published_at") @db.Timestamptz(6)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  category    Category      @relation(fields: [categoryId], references: [categoryId], onDelete: Restrict, onUpdate: Cascade)
+  feedback    ArticleFeedback[]
+  dailyViews  ArticleViewDaily[]
+
+  @@index([categoryId, status])
+  @@index([status, publishedAt])
+  @@map("articles")
+}
+
+model ArticleFeedback {
+  feedbackId Int      @id @default(autoincrement()) @map("feedback_id")
+  articleId  Int      @map("article_id")
+  // Opaque random identifier held by the browser; hash it server-side before storage.
+  voterKey   String   @map("voter_key") @db.Char(64)
+  helpful    Boolean
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  article    Article  @relation(fields: [articleId], references: [articleId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([articleId, voterKey])
+  @@map("article_feedback")
+}
+
+model SiteSetting {
+  key       String   @id @db.VarChar(80)
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model SearchLog {
+  id          Int      @id @default(autoincrement())
+  term        String   @db.VarChar(120)
+  resultCount Int
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([term])
+}
+
+model ArticleViewDaily {
+  articleId Int      @map("article_id")
+  day       DateTime @db.Date
+  count     Int      @default(0)
+  article   Article  @relation(fields: [articleId], references: [articleId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([articleId, day])
+  @@map("article_view_daily")
+}
