@@ -56,4 +56,29 @@ router.get('/me', requireAdmin, async (req, res, next) => {
 // JWT is stateless: clients discard the token at logout; it expires after eight hours.
 router.post('/logout', requireAdmin, (_req, res) => res.json({ message: 'ออกจากระบบแล้ว' }))
 
+const passwordChangeLimiter = rateLimit({
+  windowMs: WINDOW_MS,
+  limit: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => res.status(429).json({ message: 'ลองเปลี่ยนรหัสผ่านบ่อยเกินไป โปรดลองใหม่ภายหลัง' }),
+})
+
+// Wrong current password returns 400 (not 401) so the browser keeps the still-valid session.
+router.put('/password', requireAdmin, passwordChangeLimiter, async (req, res, next) => {
+  const currentPassword = typeof req.body?.currentPassword === 'string' ? req.body.currentPassword : ''
+  const newPassword = typeof req.body?.newPassword === 'string' ? req.body.newPassword : ''
+  if (!currentPassword || currentPassword.length > 200) return res.status(400).json({ message: 'กรุณากรอกรหัสผ่านปัจจุบัน' })
+  if (newPassword.length < 12 || newPassword.length > 200) return res.status(400).json({ message: 'รหัสผ่านใหม่ต้องมีความยาว 12–200 ตัวอักษร' })
+  if (newPassword === currentPassword) return res.status(400).json({ message: 'รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านปัจจุบัน' })
+  try {
+    const admin = await prisma.admin.findUnique({ where: { adminId: req.admin.adminId }, select: { password: true } })
+    if (!admin) return res.status(401).json({ message: 'ไม่พบบัญชีเจ้าหน้าที่นี้' })
+    if (!(await bcrypt.compare(currentPassword, admin.password))) return res.status(400).json({ message: 'รหัสผ่านปัจจุบันไม่ถูกต้อง' })
+    await prisma.admin.update({ where: { adminId: req.admin.adminId }, data: { password: await bcrypt.hash(newPassword, 12) } })
+    res.json({ message: 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว' })
+  } catch (error) { next(error) }
+})
+
 export default router

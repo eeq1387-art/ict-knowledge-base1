@@ -28,7 +28,7 @@ const publicApiLimiter = rateLimit({ windowMs: 60 * 1000, limit: 600, standardHe
 app.disable('x-powered-by')
 app.set('trust proxy', parsedTrustProxy)
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }))
-app.use(cors({ origin: allowedOrigin }))
+app.use(cors({ origin: allowedOrigin, maxAge: 600 }))
 app.use(express.json({ limit: '32kb' }))
 app.use('/uploads', express.static(path.resolve(backendDir, '../uploads'), {
   dotfiles: 'deny',

@@ -14,6 +14,28 @@ const feedbackLimiter = rateLimit({
   legacyHeaders: false,
   handler: (_req, res) => res.status(429).json({ message: 'ส่งการประเมินบ่อยเกินไป กรุณาลองใหม่ภายหลัง' }),
 })
+// Count a view / search log once per visitor per window so refreshes, sort changes and
+// React StrictMode double-fetches in development do not inflate statistics.
+// Prefer the browser's opaque X-Visitor-Id so staff behind one shared office IP are still counted separately.
+const DEDUPE_WINDOW_MS = 10 * 60 * 1000
+const DEDUPE_MAX_ENTRIES = 50000
+const recentHits = new Map()
+function visitorFingerprint(req) {
+  const visitor = req.get('x-visitor-id')
+  const raw = typeof visitor === 'string' && /^[\w-]{16,80}$/.test(visitor) ? `v:${visitor}` : `ip:${req.ip}|${req.get('user-agent') || ''}`
+  return createHash('sha256').update(raw).digest('base64url').slice(0, 22)
+}
+function firstHitInWindow(key) {
+  const now = Date.now()
+  const seenAt = recentHits.get(key)
+  if (seenAt && now - seenAt < DEDUPE_WINDOW_MS) return false
+  if (recentHits.size >= DEDUPE_MAX_ENTRIES) {
+    for (const [entry, time] of recentHits) if (now - time >= DEDUPE_WINDOW_MS) recentHits.delete(entry)
+    if (recentHits.size >= DEDUPE_MAX_ENTRIES) recentHits.clear()
+  }
+  recentHits.set(key, now)
+  return true
+}
 const publicArticle = { status: 'PUBLISHED' }
 const articleSelect = {
   articleId: true, categoryId: true, title: true, content: true, steps: true,
@@ -77,7 +99,7 @@ router.get('/articles/search', async (req, res, next) => {
     ])
     const categoryClause = Object.hasOwn(categoryFilter, 'categoryId') ? Prisma.sql`AND a.category_id = ${categoryId}` : Prisma.empty
     const termConditions = terms.map((term) => {
-      const compact = term.replace(/-/g, '')
+      const compact = term.replace(/-/g, '') || term
       return Prisma.sql`(
         position(lower(${term}) in lower(a.title)) > 0 OR
         position(lower(${term}) in lower(a.content)) > 0 OR
@@ -101,13 +123,15 @@ router.get('/articles/search', async (req, res, next) => {
     }
     if (query && page === 1) {
       const term = query.toLocaleLowerCase('th-TH').trim().slice(0, 120)
-      prisma.searchLog.create({ data: { term, resultCount: total } }).catch(() => {})
+      if (firstHitInWindow(`search:${visitorFingerprint(req)}:${term}`)) {
+        prisma.searchLog.create({ data: { term, resultCount: total } }).catch(() => {})
+      }
     }
     const skip = (page - 1) * pageSize
     const orderBy = req.query.sort === 'popular' ? [{ viewCount: 'desc' }, { publishedAt: 'desc' }] : [{ publishedAt: 'desc' }, { createdAt: 'desc' }]
     let items
     if (terms.length) {
-      const compactQuery = query.replace(/-/g, '')
+      const compactQuery = query.replace(/-/g, '') || query
       const orderClause = req.query.sort === 'popular'
         ? Prisma.sql`a.view_count DESC, a.published_at DESC`
         : Prisma.sql`CASE
@@ -157,16 +181,19 @@ router.get('/articles/:id', async (req, res, next) => {
     if (!found) return res.status(404).json({ message: 'ไม่พบบทความนี้' })
     const userAgent = req.get('user-agent') || ''
     const skipCount = /bot|crawl|spider|preview|headless/i.test(userAgent) || previewRequested
-    if (!skipCount) {
-      await prisma.article.update({ where: { articleId }, data: { viewCount: { increment: 1 } }, select: { articleId: true } })
+    if (!skipCount && firstHitInWindow(`view:${visitorFingerprint(req)}:${articleId}`)) {
       const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
       const dayString = `${parts.find((part) => part.type === 'year').value}-${parts.find((part) => part.type === 'month').value}-${parts.find((part) => part.type === 'day').value}`
       const day = new Date(`${dayString}T00:00:00.000Z`)
-      await prisma.articleViewDaily.upsert({
-        where: { articleId_day: { articleId, day } },
-        create: { articleId, day, count: 1 },
-        update: { count: { increment: 1 } },
-      })
+      // Keep the lifetime counter and the daily statistics consistent with each other.
+      await prisma.$transaction([
+        prisma.article.update({ where: { articleId }, data: { viewCount: { increment: 1 } }, select: { articleId: true } }),
+        prisma.articleViewDaily.upsert({
+          where: { articleId_day: { articleId, day } },
+          create: { articleId, day, count: 1 },
+          update: { count: { increment: 1 } },
+        }),
+      ])
     }
     const [result, feedback] = await Promise.all([
       prisma.article.findUnique({ where: { articleId }, select: articleSelect }),

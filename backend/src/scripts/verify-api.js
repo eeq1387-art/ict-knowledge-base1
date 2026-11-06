@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import bcrypt from 'bcrypt'
 import { prisma } from '../db.js'
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url))
@@ -37,6 +38,7 @@ let originalViewCount = null
 let originalDailyViews = []
 const uniqueTerm = 'คำค้นทดสอบอัตโนมัติ_xyz987'
 const testVoterKey = 'automated-test-voter-key-20261106'
+const tempAdminUsername = 'verify_script_temp_admin'
 
 try {
   await waitForServer(serverProc)
@@ -73,6 +75,8 @@ try {
   assert.equal(sLower.total, sUpper.total)
   assert.equal(sLower.total, sHyphen.total)
   assert.ok(sLower.total >= 2, 'Should match all Wi-Fi guides regardless of hyphen or case')
+  const hyphenOnly = await (await fetch(`${BASE}/api/articles/search?q=---`, { headers: { 'User-Agent': UA_BROWSER } })).json()
+  assert.equal(hyphenOnly.total, 0, 'A hyphen-only query must not match every article')
   console.log('✓ [5a/6] Public categories, articles, search pagination & rate-limit (600/min)')
 
   // 2. Auth & login rate limit
@@ -133,13 +137,23 @@ try {
   await fetch(`${BASE}/api/articles/search?q=${encodeURIComponent(uniqueTerm)}&page=2`, { headers: { 'User-Agent': UA_BROWSER } })
   await new Promise((r) => setTimeout(r, 120))
   assert.equal(await prisma.searchLog.count({ where: { term: uniqueTerm } }), 1)
+  await fetch(`${BASE}/api/articles/search?q=${encodeURIComponent(uniqueTerm)}&page=1&sort=popular`, { headers: { 'User-Agent': UA_BROWSER } })
+  await new Promise((r) => setTimeout(r, 120))
+  assert.equal(await prisma.searchLog.count({ where: { term: uniqueTerm } }), 1, 'Same visitor repeating a search within 10 minutes is logged once')
 
   const dailyBefore = (await prisma.articleViewDaily.aggregate({ where: { articleId: targetArticleId }, _sum: { count: true } }))._sum.count || 0
   await fetch(`${BASE}/api/articles/${targetArticleId}`, { headers: { 'User-Agent': UA_BROWSER } })
-  const viewAfterNormal = (await prisma.article.findUnique({ where: { articleId: targetArticleId }, select: { viewCount: true } })).viewCount
+  let viewAfterNormal = (await prisma.article.findUnique({ where: { articleId: targetArticleId }, select: { viewCount: true } })).viewCount
   const dailyAfterNormal = (await prisma.articleViewDaily.aggregate({ where: { articleId: targetArticleId }, _sum: { count: true } }))._sum.count || 0
   assert.equal(viewAfterNormal, originalViewCount + 1)
   assert.equal(dailyAfterNormal, dailyBefore + 1)
+
+  await fetch(`${BASE}/api/articles/${targetArticleId}`, { headers: { 'User-Agent': UA_BROWSER } })
+  assert.equal((await prisma.article.findUnique({ where: { articleId: targetArticleId }, select: { viewCount: true } })).viewCount, originalViewCount + 1, 'Refresh by the same visitor is not counted twice')
+  await fetch(`${BASE}/api/articles/${targetArticleId}`, { headers: { 'User-Agent': UA_BROWSER, 'X-Visitor-Id': 'automated-test-visitor-b-000001' } })
+  viewAfterNormal = (await prisma.article.findUnique({ where: { articleId: targetArticleId }, select: { viewCount: true } })).viewCount
+  assert.equal(viewAfterNormal, originalViewCount + 2, 'A different browser behind the same office IP is counted')
+  assert.equal((await prisma.articleViewDaily.aggregate({ where: { articleId: targetArticleId }, _sum: { count: true } }))._sum.count || 0, dailyBefore + 2)
 
   await fetch(`${BASE}/api/articles/${targetArticleId}`, { headers: { 'User-Agent': 'Googlebot/2.1 (+http://www.google.com/bot.html)' } })
   assert.equal((await prisma.article.findUnique({ where: { articleId: targetArticleId }, select: { viewCount: true } })).viewCount, viewAfterNormal)
@@ -200,9 +214,27 @@ try {
   assert.deepEqual(fs.readdirSync(uploadDir).sort(), filesBefore)
   console.log('✓ [5g] Upload magic-bytes verification (400), >5MB limit (413) & zero leftover files')
 
+  // 8. Change password (uses a temporary admin so the real account is never touched)
+  const tempPassword = 'Temp-Verify-Password-01'
+  const newTempPassword = 'Temp-Verify-Password-02'
+  await prisma.admin.deleteMany({ where: { username: tempAdminUsername } })
+  await prisma.admin.create({ data: { username: tempAdminUsername, fullname: 'Verify Script', password: await bcrypt.hash(tempPassword, 12) } })
+  const login = async (password) => fetch(`${BASE}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: tempAdminUsername, password }) })
+  const tempToken = (await (await login(tempPassword)).json()).token
+  const changePassword = (body, token = tempToken) => fetch(`${BASE}/api/auth/password`, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) })
+  assert.equal((await changePassword({ currentPassword: tempPassword, newPassword: newTempPassword }, '')).status, 401)
+  assert.equal((await changePassword({ currentPassword: 'wrong-password-xx', newPassword: newTempPassword })).status, 400)
+  assert.equal((await changePassword({ currentPassword: tempPassword, newPassword: 'short' })).status, 400)
+  assert.equal((await changePassword({ currentPassword: tempPassword, newPassword: tempPassword })).status, 400)
+  assert.equal((await changePassword({ currentPassword: tempPassword, newPassword: newTempPassword })).status, 200)
+  assert.equal((await login(tempPassword)).status, 401)
+  assert.equal((await login(newTempPassword)).status, 200)
+  console.log('✓ [8] Change password: auth guard (401), wrong/short/same password (400), success (200) & new password works')
+
   console.log('\nALL VERIFICATION CHECKS PASSED!')
 } finally {
   serverProc.kill()
+  await prisma.admin.deleteMany({ where: { username: tempAdminUsername } })
   await prisma.searchLog.deleteMany({ where: { id: { gt: maxSearchLogBefore } } })
   const hashedVoter = createHash('sha256').update(testVoterKey).digest('hex')
   if (targetArticleId) {
