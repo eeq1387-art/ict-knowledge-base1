@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import { Router } from 'express'
+import jwt from 'jsonwebtoken'
 import rateLimit from 'express-rate-limit'
 import { prisma } from '../db.js'
 import { CONTACT_SETTING_KEY, normalizeContactSettings } from '../contactSettings.js'
@@ -75,11 +76,17 @@ router.get('/articles/search', async (req, res, next) => {
       { keywords: { has: term } },
     ])
     const categoryClause = Object.hasOwn(categoryFilter, 'categoryId') ? Prisma.sql`AND a.category_id = ${categoryId}` : Prisma.empty
-    const termConditions = terms.map((term) => Prisma.sql`(
-      position(lower(${term}) in lower(a.title)) > 0 OR
-      position(lower(${term}) in lower(a.content)) > 0 OR
-      EXISTS (SELECT 1 FROM unnest(a.keywords) AS k(value) WHERE lower(k.value) = lower(${term}))
-    )`)
+    const termConditions = terms.map((term) => {
+      const compact = term.replace(/-/g, '')
+      return Prisma.sql`(
+        position(lower(${term}) in lower(a.title)) > 0 OR
+        position(lower(${term}) in lower(a.content)) > 0 OR
+        EXISTS (SELECT 1 FROM unnest(a.keywords) AS k(value) WHERE lower(k.value) = lower(${term})) OR
+        position(lower(${compact}) in replace(lower(a.title), '-', '')) > 0 OR
+        position(lower(${compact}) in replace(lower(a.content), '-', '')) > 0 OR
+        EXISTS (SELECT 1 FROM unnest(a.keywords) AS k(value) WHERE replace(lower(k.value), '-', '') = lower(${compact}))
+      )`
+    })
     const searchClause = terms.length ? Prisma.sql`AND (${Prisma.join(termConditions, ' OR ')})` : Prisma.empty
     let total
     if (terms.length) {
@@ -100,12 +107,13 @@ router.get('/articles/search', async (req, res, next) => {
     const orderBy = req.query.sort === 'popular' ? [{ viewCount: 'desc' }, { publishedAt: 'desc' }] : [{ publishedAt: 'desc' }, { createdAt: 'desc' }]
     let items
     if (terms.length) {
+      const compactQuery = query.replace(/-/g, '')
       const orderClause = req.query.sort === 'popular'
         ? Prisma.sql`a.view_count DESC, a.published_at DESC`
         : Prisma.sql`CASE
-            WHEN lower(a.title) = lower(${query}) THEN 0
-            WHEN position(lower(${query}) in lower(a.title)) > 0 THEN 1
-            WHEN EXISTS (SELECT 1 FROM unnest(a.keywords) AS k(value) WHERE lower(k.value) = lower(${query})) THEN 2
+            WHEN lower(a.title) = lower(${query}) OR replace(lower(a.title), '-', '') = lower(${compactQuery}) THEN 0
+            WHEN position(lower(${query}) in lower(a.title)) > 0 OR position(lower(${compactQuery}) in replace(lower(a.title), '-', '')) > 0 THEN 1
+            WHEN EXISTS (SELECT 1 FROM unnest(a.keywords) AS k(value) WHERE lower(k.value) = lower(${query}) OR replace(lower(k.value), '-', '') = lower(${compactQuery})) THEN 2
             ELSE 3 END ASC, a.published_at DESC`
       const rows = await prisma.$queryRaw(Prisma.sql`
         SELECT a.article_id AS "articleId", a.category_id AS "categoryId", a.title,
@@ -130,10 +138,24 @@ router.get('/articles/:id', async (req, res, next) => {
   try {
     const articleId = Number.parseInt(req.params.id, 10)
     if (!Number.isInteger(articleId) || articleId < 1) return res.status(404).json({ message: 'ไม่พบบทความนี้' })
-    const found = await prisma.article.findFirst({ where: { articleId, ...publicArticle }, select: { articleId: true } })
+    const previewRequested = req.query.preview === '1' || req.get('x-admin-preview') === '1'
+    let adminPreview = false
+    if (previewRequested) {
+      const authorization = req.get('authorization') || ''
+      const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : ''
+      if (token) {
+        try {
+          const claims = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] })
+          const adminId = Number(claims?.sub)
+          if (claims?.role === 'admin' && Number.isInteger(adminId) && adminId > 0) {
+            adminPreview = Boolean(await prisma.admin.findUnique({ where: { adminId }, select: { adminId: true } }))
+          }
+        } catch { adminPreview = false }
+      }
+    }
+    const found = await prisma.article.findFirst({ where: adminPreview ? { articleId } : { articleId, ...publicArticle }, select: { articleId: true } })
     if (!found) return res.status(404).json({ message: 'ไม่พบบทความนี้' })
     const userAgent = req.get('user-agent') || ''
-    const previewRequested = req.query.preview === '1' || req.get('x-admin-preview') === '1'
     const skipCount = /bot|crawl|spider|preview|headless/i.test(userAgent) || previewRequested
     if (!skipCount) {
       await prisma.article.update({ where: { articleId }, data: { viewCount: { increment: 1 } }, select: { articleId: true } })

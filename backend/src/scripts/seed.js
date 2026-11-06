@@ -1,5 +1,33 @@
 import { createHash } from 'node:crypto'
 import { prisma } from '../db.js'
+import { CONTACT_SETTING_KEY } from '../contactSettings.js'
+
+const defaultContact = {
+  phone: '043-221-555 ต่อ 101',
+  lineId: '@ict-khonkaen',
+  lineUrl: 'https://line.me/R/ti/p/@ict-khonkaen',
+  email: 'helpdesk@ict-khonkaen.go.th',
+  location: 'ชั้น 3 อาคารศูนย์เทคโนโลยีสารสนเทศ ขอนแก่น',
+  hours: 'จันทร์ – ศุกร์ เวลา 08:30 – 16:30 น. (เว้นวันหยุดราชการ)',
+  note: 'กรณีแจ้งเหตุขัดข้องเร่งด่วน กรุณาระบุชื่อหน่วยงานและอาการที่พบ',
+}
+
+const sampleSearches = [
+  { term: 'wifi', resultCount: 2, count: 14 },
+  { term: 'รหัสผ่าน', resultCount: 1, count: 11 },
+  { term: 'printer', resultCount: 2, count: 9 },
+  { term: 'windows 11', resultCount: 1, count: 7 },
+  { term: 'อินเทอร์เน็ตช้า', resultCount: 1, count: 5 },
+  { term: 'ตั้งค่า vpn จากบ้าน', resultCount: 0, count: 6 },
+  { term: 'ขอใช้อีเมลหน่วยงาน', resultCount: 0, count: 4 },
+  { term: 'สแกนไวรัสเครื่องราชการ', resultCount: 0, count: 3 },
+]
+
+function bangkokDayOffset(daysAgo) {
+  const target = new Date(Date.now() - daysAgo * 86400000)
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(target)
+  return new Date(`${parts.find((p) => p.type === 'year').value}-${parts.find((p) => p.type === 'month').value}-${parts.find((p) => p.type === 'day').value}T00:00:00.000Z`)
+}
 
 const categories = [
   ['คอมพิวเตอร์และอุปกรณ์', 'การใช้งานและแก้ไขปัญหาคอมพิวเตอร์ อุปกรณ์ และระบบปฏิบัติการ'],
@@ -64,9 +92,35 @@ async function main() {
           update: { helpful: index < 4 },
         })
       }
+      for (let daysAgo = 0; daysAgo < 30; daysAgo += 1) {
+        if (daysAgo % 7 === 6) continue
+        const dailyCount = ((article.articleId + daysAgo) % 4) + (guide.featured ? 2 : 0)
+        const day = bangkokDayOffset(daysAgo)
+        await prisma.articleViewDaily.upsert({
+          where: { articleId_day: { articleId: article.articleId, day } },
+          create: { articleId: article.articleId, day, count: dailyCount },
+          update: { count: dailyCount },
+        })
+      }
     }
   }
-  console.log(`Seed complete: ${categories.length} categories, ${guides.length} articles, and sample feedback.`)
+
+  const existingContact = await prisma.siteSetting.findUnique({ where: { key: CONTACT_SETTING_KEY } })
+  if (!existingContact) {
+    await prisma.siteSetting.create({ data: { key: CONTACT_SETTING_KEY, value: defaultContact } })
+  }
+
+  await prisma.searchLog.deleteMany({ where: { term: { in: sampleSearches.map((item) => item.term) } } })
+  const searchRows = sampleSearches.flatMap((item, groupIndex) =>
+    Array.from({ length: item.count }, (_, index) => ({
+      term: item.term,
+      resultCount: item.resultCount,
+      createdAt: new Date(Date.now() - ((groupIndex + index) % 21) * 86400000 - index * 3600000),
+    }))
+  )
+  await prisma.searchLog.createMany({ data: searchRows })
+
+  console.log(`Seed complete: ${categories.length} categories, ${guides.length} articles, contact settings, daily views, and sample search logs.`)
 }
 
 main().catch((error) => { console.error('Seed failed:', error); process.exitCode = 1 }).finally(async () => { await prisma.$disconnect() })

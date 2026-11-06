@@ -9,7 +9,7 @@
     "admin:create": "node src/scripts/create-admin.js",
     "db:seed": "node src/scripts/seed.js",
     "secret:generate": "node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\"",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node src/scripts/verify-api.js",
     "logs:prune": "node src/scripts/prune-logs.js"
   },
   "keywords": [],

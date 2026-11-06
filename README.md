@@ -1,13 +1,13 @@
 # ระบบคู่มือและคลังความรู้ด้านเทคโนโลยีสารสนเทศ สำหรับศูนย์ ICT ขอนแก่น
 
-เว็บไซต์รวมคู่มือและวิธีแก้ปัญหา IT สำหรับผู้ใช้ทั่วไป พร้อมพื้นที่เจ้าหน้าที่สำหรับดูแลบทความและหมวดหมู่
+เว็บไซต์รวมคู่มือและวิธีแก้ปัญหา IT สำหรับผู้ใช้ทั่วไป พร้อมพื้นที่เจ้าหน้าที่สำหรับดูแลบทความ หมวดหมู่ ช่องทางติดต่อ และสถิติการใช้งานเชิงลึก
 
 ## เทคโนโลยี
 
-- Frontend: React 19, Vite 8, React Router, Axios, Bootstrap 5
-- Backend: Node.js, Express 5
-- Database: PostgreSQL, Prisma ORM 7, Prisma PostgreSQL adapter
-- Authentication: bcrypt และ JWT
+- **Frontend:** React 19, Vite 8, React Router 7, Axios
+- **Backend:** Node.js, Express 5, Express Rate Limit, Helmet, Multer
+- **Database:** PostgreSQL, Prisma ORM 7 (`@prisma/adapter-pg`)
+- **Authentication:** bcrypt และ JWT (`HS256`, อายุเซสชัน 8 ชั่วโมง)
 
 ## สิ่งที่ต้องมี
 
@@ -26,23 +26,23 @@ Copy-Item backend/.env.example backend/.env
 กำหนดตัวแปรต่อไปนี้ใน `backend/.env`:
 
 - `DATABASE_URL`: PostgreSQL connection string
-- `JWT_SECRET`: ค่าสุ่มยาวอย่างน้อย 32 ตัวอักษร
+- `JWT_SECRET`: ค่าสุ่มความยาวอย่างน้อย 32 ตัวอักษร (สร้างได้ด้วย `npm --prefix backend run secret:generate`)
 - `ADMIN_INITIAL_USERNAME`, `ADMIN_INITIAL_FULLNAME`, `ADMIN_INITIAL_PASSWORD`: ข้อมูลบัญชีตั้งต้น; รหัสผ่านต้องยาว 12–200 ตัวอักษร
-- `PORT` และ `FRONTEND_ORIGIN`: ไม่บังคับ หากใช้ค่าเริ่มต้นให้ API อยู่ port 3000 และ frontend origin `http://localhost:5173`
+- `PORT` และ `FRONTEND_ORIGIN`: ไม่บังคับ (ค่าเริ่มต้นคือ port `3000` และ `http://localhost:5173`)
+- `TRUST_PROXY`: ปล่อยว่างหากไม่ได้อยู่หลัง reverse proxy หรือระบุจำนวน hop / ค่าที่ Express รองรับ
 
-อย่า commit `backend/.env` หรือใส่รหัสผ่านจริงใน `.env.example` บัญชี Admin ใช้ค่าที่ตั้งใน environment เท่านั้น ไม่มีรหัสผ่านที่ฝังไว้ในโค้ดหรือ README
+> **ข้อควรระวัง:** ห้าม commit `backend/.env` หรือใส่รหัสผ่านจริงใน `.env.example`
 
-จาก root ของโปรเจกต์ ติดตั้ง dependencies และเตรียมฐานข้อมูล:
+จาก root ของโปรเจกต์ ติดตั้ง dependencies, รัน migration และเตรียมข้อมูลตั้งต้น:
 
 ```powershell
 cd backend
 npm install
-npx prisma migrate deploy
-npx prisma generate
+npx prisma migrate deploy --config prisma7.config.ts
+npx prisma generate --config prisma7.config.ts
 npm run admin:create
+npm run db:seed
 ```
-
-คำสั่งสร้าง Admin ใช้ครั้งแรกต่อ username เท่านั้น หากบัญชีนั้นมีอยู่แล้ว Prisma จะปฏิเสธ username ซ้ำ
 
 เปิด Terminal สองหน้าต่างเพื่อรันระบบ:
 
@@ -59,35 +59,28 @@ npm run dev
 
 เปิดหน้าเว็บที่ `http://localhost:5173`; API อยู่ที่ `http://localhost:3000/api` และ health check คือ `/api/health`
 
-## ฟังก์ชัน
+## คำสั่งดูแลระบบและทดสอบ (`backend`)
 
-- ผู้ใช้ทั่วไป: หน้าแรก, หมวดหมู่, ค้นหา/กรอง/เรียง/แบ่งหน้า, รายละเอียดบทความ, ดาวน์โหลด PDF และ feedback
-- เจ้าหน้าที่: login/logout, dashboard, CRUD บทความและหมวดหมู่, เปลี่ยนสถานะ draft/published/hidden, อัปโหลดภาพและ PDF
-- Upload: JPG/PNG/WebP ไม่เกิน 5 MB และ PDF ไม่เกิน 15 MB; ตรวจ MIME, นามสกุล และ file signature ก่อนบันทึก
-- ป้องกันลบหมวดหมู่ที่มีบทความ และป้องกัน feedback ซ้ำต่อ article/voter key
+- `npm run db:seed` — เติมข้อมูลตัวอย่าง (5 หมวดหมู่, 10 บทความ, ผลโหวต, ข้อมูลติดต่อศูนย์ ICT, ยอดเข้าชมรายวันย้อนหลัง 30 วัน และประวัติคำค้นจำลอง) แบบ idempotent
+- `npm run logs:prune` — ลบประวัติคำค้น (`SearchLog`) ที่เก่ากว่า 90 วัน
+- `npm test` — รันชุดทดสอบอัตโนมัติ (API สาธารณะ, ค้นหา, ล็อกอิน/Rate Limit, ข้อมูลติดต่อ, สถิติ/บอท/โหมดดูตัวอย่าง, โหวตความพึงพอใจ และความปลอดภัยการอัปโหลดไฟล์) โดยคืนค่าฐานข้อมูลกลับสู่สภาพเดิมหลังจบการทดสอบ
+
+## ฟังก์ชันหลัก
+
+- **ผู้ใช้ทั่วไป:** หน้าแรก, หมวดหมู่, ค้นหาคู่มือ (รองรับทั้งพิมพ์ติดกันและมีขีดกลาง เช่น `wifi` / `Wi-Fi`), กรอง/เรียงลำดับ/แบ่งหน้า, อ่านบทความ, พิมพ์หรือดาวน์โหลด PDF, ประเมินความพึงพอใจ และดูช่องทางติดต่อศูนย์ ICT
+- **เจ้าหน้าที่ (Admin):**
+  - เข้าสู่ระบบพร้อมการจำกัดอัตราป้องกันการเดารหัสผ่าน (10 ครั้ง/15 นาที/บัญชี และ 30 ครั้ง/15 นาที/IP)
+  - Dashboard ภาพรวม, กราฟยอดเข้าชมรายวันย้อนหลัง `7 / 30 / 90` วัน, ตารางคำค้นยอดนิยม และรายการคำค้นที่หาไม่เจอพร้อมปุ่มลัดเขียนคู่มือใหม่
+  - จัดการบทความและหมวดหมู่ (CRUD), สลับสถานะ `DRAFT` / `PUBLISHED` / `HIDDEN`, ดูตัวอย่างบทความ (`?preview=1`) โดยไม่เพิ่มยอดวิว และส่งออกรายงานสถิติเป็นไฟล์ CSV
+  - ตั้งค่าข้อมูลติดต่อ 7 ช่อง (`phone`, `lineId`, `lineUrl`, `email`, `location`, `hours`, `note`) พร้อมตรวจสอบความถูกต้องของอีเมลและลิงก์ `https://`
+  - อัปโหลดรูปภาพ (`JPG / PNG / WebP` ไม่เกิน 5 MB) และไฟล์คู่มือ (`PDF` ไม่เกิน 15 MB) พร้อมตรวจสอบทั้งนามสกุล, MIME type และ Magic Bytes (File Signature)
 
 ## API หลัก
 
-- Public: `GET /api/categories`, `GET /api/articles`, `GET /api/articles/search`, `GET /api/articles/:id`, `POST /api/articles/:id/feedback`
-- Auth: `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`
-- Admin: `GET /api/admin/dashboard`, `/api/admin/articles`, `/api/admin/categories` และเส้นทาง CRUD ตาม resource (ทุกเส้นทาง Admin ต้องมี JWT ยกเว้น login)
+- **Public:** `GET /api/categories`, `GET /api/articles`, `GET /api/articles/search`, `GET /api/articles/:id`, `POST /api/articles/:id/feedback`, `GET /api/settings/contact`
+- **Auth:** `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`
+- **Admin:** `GET /api/admin/dashboard`, `GET /api/admin/insights`, `GET /api/admin/reports/articles.csv`, `PUT /api/admin/settings/contact`, `/api/admin/articles`, `/api/admin/categories`
 
-## ตรวจสอบ
+## เอกสารผลการตรวจสอบ
 
-รายการตรวจรอบหลักที่ผ่าน:
-
-- `frontend`: `npm run build` และ `npm run lint`
-- `backend`: Node syntax check, `npx prisma validate`, migration status
-- PostgreSQL smoke checks: auth, category/article CRUD, dashboard aggregates, search relevance/filter/pagination, publish/hide visibility, upload/static serving, file signature rejection และการป้องกันลบหมวดหมู่ที่มีบทความ
-- ข้อมูลและไฟล์ทดสอบถูกลบหลังการตรวจ
-
-Migration schema อยู่ที่ `backend/prisma/migrations/`; migration ปัจจุบันถูก apply และฐานข้อมูลที่ตั้งค่าไว้รายงานว่า schema up to date
-
-## สถานะ Phase
-
-- Phase 1: โครงสร้างและฐานข้อมูล — เสร็จ
-- Phase 2: เว็บไซต์ผู้ใช้ — เสร็จ
-- Phase 3: Authentication — เสร็จและ smoke test ผ่าน
-- Phase 4: CRUD บทความ/หมวดหมู่ — เสร็จและ smoke test ผ่าน
-- Phase 5: ค้นหาและ Dashboard — เสร็จและ smoke test ผ่าน
-- Phase 6: ตรวจ build/lint, schema/migrations และ API smoke checks — ผ่านรอบหลัก
+ดูตารางผลการตรวจสอบและหลักฐานการทดสอบฉบับเต็มได้ที่ [docs/VERIFICATION.md](./docs/VERIFICATION.md)
