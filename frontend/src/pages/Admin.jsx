@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { api, clearAdminToken, setAdminToken } from '../services/api'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { api, clearAdminToken, setAdminToken, useDocumentTitle } from '../services/api'
 import AdminManagement from './AdminManagement'
 
 export function AdminLoginPage() {
@@ -9,6 +9,9 @@ export function AdminLoginPage() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const expired = params.get('expired') === '1'
+  useDocumentTitle('เข้าสู่ระบบเจ้าหน้าที่')
 
   async function submit(event) {
     event.preventDefault()
@@ -28,7 +31,7 @@ export function AdminLoginPage() {
     }
   }
 
-  return <main className="admin-login-page"><div className="admin-login-card"><Link className="admin-brand" to="/"><span className="brand-mark">ICT</span><span><b>คลังความรู้ ICT</b><small>ระบบสำหรับเจ้าหน้าที่</small></span></Link><div className="admin-login-title"><span className="eyebrow">STAFF ACCESS</span><h1>เข้าสู่ระบบเจ้าหน้าที่</h1><p>กรุณาเข้าสู่ระบบเพื่อจัดการคลังความรู้</p></div><form onSubmit={submit}><label htmlFor="username">ชื่อผู้ใช้</label><input id="username" name="username" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} required maxLength={80}/><label htmlFor="password">รหัสผ่าน</label><input id="password" name="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required maxLength={200}/>{error && <p role="alert" className="admin-login-error">{error}</p>}<button disabled={busy}>{busy ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}</button></form><Link className="back-home" to="/">← กลับสู่เว็บไซต์</Link></div></main>
+  return <main className="admin-login-page"><div className="admin-login-card"><Link className="admin-brand" to="/"><span className="brand-mark">ICT</span><span><b>คลังความรู้ ICT</b><small>ระบบสำหรับเจ้าหน้าที่</small></span></Link><div className="admin-login-title"><span className="eyebrow">STAFF ACCESS</span><h1>เข้าสู่ระบบเจ้าหน้าที่</h1><p>กรุณาเข้าสู่ระบบเพื่อจัดการคลังความรู้</p></div><form onSubmit={submit}><label htmlFor="username">ชื่อผู้ใช้</label><input id="username" name="username" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} required maxLength={80}/><label htmlFor="password">รหัสผ่าน</label><input id="password" name="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required maxLength={200}/>{error ? <p role="alert" className="admin-login-error">{error}</p> : expired && <p role="status" className="admin-login-error">เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง</p>}<button disabled={busy}>{busy ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}</button></form><Link className="back-home" to="/">← กลับสู่เว็บไซต์</Link></div></main>
 }
 
 export function AdminPage() {

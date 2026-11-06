@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link, Outlet, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { api, assetUrl, feedbackKey } from './services/api'
+import { Link, NavLink, Outlet, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { api, assetUrl, feedbackKey, useDocumentTitle } from './services/api'
 import { AdminLoginPage, AdminPage } from './pages/Admin'
 import { AdminHome, ArticleEditor, ArticleList, CategoryManager, ContactSettings } from './pages/AdminManagement'
 import './App.css'
@@ -25,7 +25,7 @@ function Header() {
     <div className="utility"><div className="shell utility-inner"><span>ศูนย์เทคโนโลยีสารสนเทศ ขอนแก่น</span><span>คลังความรู้และคู่มือการใช้งาน</span></div></div>
     <header className="site-header"><div className="shell nav-row">
       <Link className="brand" to="/"><span className="brand-mark">ICT</span><span><b>คลังความรู้ ICT</b><small>ศูนย์ ICT ขอนแก่น</small></span></Link>
-      <nav><Link to="/">หน้าแรก</Link><Link to="/articles">คลังความรู้</Link><Link to="/search">ค้นหา</Link><Link to={isAdmin ? '/admin' : '/admin/login'}>{isAdmin ? 'ไปที่ระบบจัดการ' : 'เข้าสู่ระบบเจ้าหน้าที่'}</Link></nav>
+      <nav><NavLink to="/" end>หน้าแรก</NavLink><NavLink to="/articles">คลังความรู้</NavLink><NavLink to="/search">ค้นหา</NavLink><Link to={isAdmin ? '/admin' : '/admin/login'}>{isAdmin ? 'ไปที่ระบบจัดการ' : 'เข้าสู่ระบบเจ้าหน้าที่'}</Link></nav>
       <form className="nav-search" onSubmit={submit}><input aria-label="ค้นหาคู่มือ" value={term} onChange={(e) => setTerm(e.target.value)} placeholder="ค้นหาคู่มือ..."/><button aria-label="ค้นหา">⌕</button></form>
     </div></header>
   </>
@@ -128,6 +128,7 @@ function HomePage() {
   const featured = usePublicData('/articles?featured=true&limit=3')
   const contact = usePublicData('/settings/contact')
   const contactHref = contactActionHref(contact.data)
+  useDocumentTitle('')
   return <main>
     <section className="hero"><div className="shell hero-inner"><div className="hero-copy"><div className="hero-kicker"><span></span> KNOWLEDGE BASE • ICT CENTER KHON KAEN</div><h1>แก้ปัญหาไอที<br/>ได้ด้วยตัวคุณเอง</h1><p>รวมคู่มือและความรู้ด้านเทคโนโลยีสารสนเทศ ค้นหาคำตอบที่ใช่ พร้อมทำตามได้ทีละขั้นตอน</p><SearchBox/><div className="hero-proof"><span>✓</span> คู่มือเข้าใจง่าย <span>✓</span> ค้นหาได้ทุกเวลา <span>✓</span> ไม่มีค่าใช้จ่าย</div></div><div className="hero-visual" aria-hidden="true"><div className="visual-circle"><div className="visual-window"><div className="window-bar"><i/><i/><i/></div><div className="window-content"><div className="window-icon">?</div><div className="window-lines"><i/><i/><i/></div><div className="window-check">✓</div></div></div><span className="float-chip chip-one">✓ แก้ไขได้แล้ว</span><span className="float-chip chip-two">⌕ ค้นหาคำตอบ</span><span className="visual-dot dot-one"/><span className="visual-dot dot-two"/></div></div></div></section>
     <section className="section shell categories-section"><SectionHeading eyebrow="BROWSE BY TOPIC" title="เลือกหมวดหมู่ความรู้" action="ดูทุกหมวดหมู่" to="/articles"/>{categories.loading ? <div className="loading">กำลังโหลดหมวดหมู่...</div> : categories.error ? <ErrorState message={categories.error}/> : categories.data?.length ? <CategoryGrid categories={categories.data}/> : <EmptyState title="ยังไม่มีหมวดหมู่" detail="หมวดหมู่ความรู้จะแสดงที่นี่เมื่อมีการเพิ่มข้อมูล"/>}</section>
@@ -140,7 +141,7 @@ function HomePage() {
 function ErrorState({ message }) { return <div className="notice error-notice"><b>ไม่สามารถเชื่อมต่อข้อมูลได้</b><span>{message} โปรดลองใหม่เมื่อตรวจสอบการเชื่อมต่อระบบแล้ว</span></div> }
 function EmptyState({ title, detail }) { return <div className="empty-state"><span>⌕</span><b>{title}</b><p>{detail}</p></div> }
 
-function NotFoundPage() { return <main className="not-found shell"><span className="eyebrow">404 · PAGE NOT FOUND</span><h1>ไม่พบหน้าที่คุณกำลังหา</h1><p>ลิงก์นี้อาจถูกย้ายหรือไม่มีอยู่แล้ว</p><Link className="admin-primary-link" to="/">กลับหน้าแรก</Link></main> }
+function NotFoundPage() { useDocumentTitle('ไม่พบหน้าที่ต้องการ'); return <main className="not-found shell"><span className="eyebrow">404 · PAGE NOT FOUND</span><h1>ไม่พบหน้าที่คุณกำลังหา</h1><p>ลิงก์นี้อาจถูกย้ายหรือไม่มีอยู่แล้ว</p><Link className="admin-primary-link" to="/">กลับหน้าแรก</Link></main> }
 
 function ArticlesPage({ search = false }) {
   const [params, setParams] = useSearchParams(); const query = params.get('q') || ''; const categoryId = params.get('category') || ''
@@ -154,6 +155,7 @@ function ArticlesPage({ search = false }) {
   const results = usePublicData(path)
   function updateFilter(key, value) { const next = new URLSearchParams(params); if (value) next.set(key, value); else next.delete(key); next.delete('page'); setParams(next) }
   function goToPage(value) { const next = new URLSearchParams(params); next.set('page', String(value)); setParams(next) }
+  useDocumentTitle(search ? (query ? `ค้นหา “${query}”` : 'ค้นหาคู่มือ') : selectedCategory ? selectedCategory.categoryName : 'คลังความรู้และคู่มือ')
   return <main className="listing-page"><div className="shell"><div className="page-intro"><div className="breadcrumbs"><Link to="/">หน้าแรก</Link><span>/</span>{search ? 'ผลการค้นหา' : categoryId && selectedCategory ? <><Link to="/articles">คลังบทความ</Link><span>/</span><span>{selectedCategory.categoryName}</span></> : 'คลังบทความ'}</div><span className="eyebrow">ICT KNOWLEDGE LIBRARY</span><h1>{selectedCategory && !search ? selectedCategory.categoryName : search ? 'ผลการค้นหา' : 'คลังความรู้และคู่มือ'}</h1><p>{search ? (query ? <>ผลลัพธ์สำหรับ <b>“{query}”</b></> : 'พิมพ์คำค้นเพื่อค้นหาคู่มือ') : 'ค้นหาคู่มือและวิธีแก้ไขปัญหาด้านเทคโนโลยีสารสนเทศ'}</p><SearchBox key={query} initial={query}/></div>
     <div className="listing-layout"><aside className="filter-panel"><b>หมวดหมู่ความรู้</b><button className={!categoryId ? 'active' : ''} onClick={() => updateFilter('category', '')}>ทั้งหมด</button>{(categories.data || []).map((c) => <button key={c.categoryId} className={categoryId === String(c.categoryId) ? 'active' : ''} onClick={() => updateFilter('category', String(c.categoryId))}>{c.categoryName}</button>)}</aside>
       <section className="listing-results"><div className="results-head"><span>{results.data?.total || 0} บทความ</span><select aria-label="เรียงลำดับ" value={params.get('sort') || 'recent'} onChange={(e) => updateFilter('sort', e.target.value)}><option value="recent">ใหม่ล่าสุด</option><option value="popular">ยอดเข้าชมสูงสุด</option></select></div>{results.loading ? <div className="loading">กำลังค้นหาบทความ...</div> : results.error ? <ErrorState message={results.error}/> : results.data?.items?.length ? <><div className="article-grid">{(results.data?.items || []).map((a) => <ArticleCard key={a.articleId} article={a}/>)}</div>{results.data.pageCount > 1 && <nav className="pagination" aria-label="เปลี่ยนหน้าผลการค้นหา"><button disabled={page <= 1} onClick={() => goToPage(page - 1)}>← ก่อนหน้า</button><span>หน้า {results.data.page} จาก {results.data.pageCount}</span><button disabled={page >= results.data.pageCount} onClick={() => goToPage(page + 1)}>ถัดไป →</button></nav>}</> : <EmptyState title="ไม่พบบทความที่ตรงกับคำค้น" detail="ลองใช้คำค้นอื่น หรือเลือกหมวดหมู่ความรู้"/>}</section></div>
@@ -172,6 +174,7 @@ function ArticlePage() {
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState('')
   const related = usePublicData(article ? `/articles?category=${article.categoryId}&limit=6` : '')
+  useDocumentTitle(article?.title || (loading ? 'กำลังโหลดบทความ' : 'ไม่พบบทความ'))
   const voteValue = vote.id === id ? vote.value : ''
   let storedVote = null
   try { storedVote = window.localStorage.getItem(`ict-article-vote-${id}`) } catch { /* Voting remains available when storage is blocked. */ }
@@ -212,6 +215,7 @@ function ArticlePage() {
   const paragraphs = (article.content || '').split(/\n{2,}/).filter(Boolean)
   const relatedArticles = (related.data || []).filter((item) => item.articleId !== article.articleId).slice(0, 4)
   return <main className="article-detail shell">
+    {preview && <div className="preview-banner" role="status"><b>โหมดดูตัวอย่างของเจ้าหน้าที่</b><span>การเปิดหน้านี้จะไม่ถูกนับเป็นยอดเข้าชม</span></div>}
     <div className="breadcrumbs"><Link to="/">หน้าแรก</Link><span>/</span><Link to={`/articles?category=${article.categoryId}`}>{article.category?.categoryName || 'คลังบทความ'}</Link><span>/</span><span>{article.title}</span></div>
     <div className="detail-layout"><article className="detail-main"><div className="article-meta"><Link to={`/articles?category=${article.categoryId}`}>{article.category?.categoryName}</Link><span>เผยแพร่ {dateLabel(article.publishedAt || article.createdAt)}</span></div><h1>{article.title}</h1><div className="detail-stats"><span>◷ {Number(article.viewCount || 0).toLocaleString('th-TH')} ครั้ง</span><span>อัปเดตล่าสุด {dateLabel(article.updatedAt)}</span></div>
       <div className="article-tools"><button className="print-button" onClick={copyLink}>{copied ? '✓ คัดลอกลิงก์แล้ว' : '⧉ คัดลอกลิงก์คู่มือ'}</button><button className="print-button" onClick={() => window.print()}>▤ พิมพ์คู่มือ / บันทึกเป็น PDF</button>{copyError && <span role="status">{copyError}</span>}</div>

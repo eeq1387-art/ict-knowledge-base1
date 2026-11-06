@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { api, assetUrl } from '../services/api'
+import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { api, assetUrl, useDocumentTitle } from '../services/api'
 
 function useAdminData(path, refresh = 0) {
   const [response, setResponse] = useState({ path: '', refresh: -1, data: null, error: '' })
@@ -55,6 +55,7 @@ export function ContactSettings() {
   const [actionError, setActionError] = useState('')
   const [busy, setBusy] = useState(false)
   const form = draft || data || emptyContact
+  useDocumentTitle('ตั้งค่า · ระบบเจ้าหน้าที่')
 
   function setField(field) {
     return (event) => setDraft((current) => ({ ...(current || data || emptyContact), [field]: event.target.value }))
@@ -83,7 +84,43 @@ export function ContactSettings() {
       <label>หมายเหตุ <small>ไม่เกิน 300 ตัวอักษร</small><textarea rows={3} maxLength={300} value={form.note} onChange={setField('note')} placeholder="ข้อมูลเพิ่มเติมสำหรับผู้ติดต่อ"/></label>
       <div className="admin-form-actions"><button className="admin-primary-link" disabled={busy || Boolean(error)}>{busy ? 'กำลังบันทึก...' : 'บันทึกข้อมูลติดต่อ'}</button></div>
     </form>}
+    <PasswordSettings/>
   </section>
+}
+
+function PasswordSettings() {
+  const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [notice, setNotice] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const setField = (field) => (event) => setForm((value) => ({ ...value, [field]: event.target.value }))
+
+  async function submit(event) {
+    event.preventDefault()
+    setNotice('')
+    setActionError('')
+    if (form.newPassword.length < 12) return setActionError('รหัสผ่านใหม่ต้องมีอย่างน้อย 12 ตัวอักษร')
+    if (form.newPassword !== form.confirmPassword) return setActionError('รหัสผ่านใหม่และการยืนยันไม่ตรงกัน')
+    setBusy(true)
+    try {
+      const result = await api.put('/auth/password', { currentPassword: form.currentPassword, newPassword: form.newPassword })
+      setNotice(result.message || 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว')
+      setForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+    } catch (err) { setActionError(err.message) }
+    finally { setBusy(false) }
+  }
+
+  return <form className="admin-form password-settings-form" onSubmit={submit}>
+    <h2>เปลี่ยนรหัสผ่านเจ้าหน้าที่</h2>
+    <p className="admin-muted">รหัสผ่านใหม่ต้องมี 12–200 ตัวอักษร แนะนำให้ผสมตัวอักษร ตัวเลข และสัญลักษณ์</p>
+    <Alert type="success">{notice}</Alert><Alert>{actionError}</Alert>
+    <label>รหัสผ่านปัจจุบัน<input type="password" autoComplete="current-password" required maxLength={200} value={form.currentPassword} onChange={setField('currentPassword')}/></label>
+    <div className="admin-form-grid">
+      <label>รหัสผ่านใหม่<input type="password" autoComplete="new-password" required minLength={12} maxLength={200} value={form.newPassword} onChange={setField('newPassword')}/></label>
+      <label>ยืนยันรหัสผ่านใหม่<input type="password" autoComplete="new-password" required minLength={12} maxLength={200} value={form.confirmPassword} onChange={setField('confirmPassword')}/></label>
+    </div>
+    <div className="admin-form-actions"><button className="admin-primary-link" disabled={busy}>{busy ? 'กำลังบันทึก...' : 'เปลี่ยนรหัสผ่าน'}</button></div>
+  </form>
 }
 
 export function AdminHome() {
@@ -93,6 +130,7 @@ export function AdminHome() {
   const insights = useAdminData(`/admin/insights?days=${insightDays}`)
   const [actionError, setActionError] = useState('')
   const dashboard = data || {}
+  useDocumentTitle('ภาพรวม · ระบบเจ้าหน้าที่')
   async function publishNow(article) {
     setActionError('')
     try { await api.patch(`/admin/articles/${article.articleId}/status`, { status: 'PUBLISHED' }); setRefresh((value) => value + 1) }
@@ -119,7 +157,7 @@ export function AdminHome() {
         <div className="satisfaction-card"><span>อัตราความพึงพอใจรวม</span><b>{Number(dashboard.helpfulPercent || 0)}%</b><small>มีประโยชน์ {dashboard.helpfulCount || 0} จาก {dashboard.feedbackCount || 0} โหวต</small></div>
       </div>
       <div className="dashboard-panel"><div className="dashboard-panel-heading"><div><span className="eyebrow">CATEGORY BREAKDOWN</span><h2>สัดส่วนบทความตามหมวดหมู่</h2></div><Link to="/admin/categories">จัดการหมวดหมู่ →</Link></div><div className="admin-table-wrap"><table className="admin-table dashboard-table"><thead><tr><th>หมวดหมู่</th><th>จำนวนบทความ</th><th>ยอดเข้าชม</th><th>สัดส่วน</th><th>เปิดรายการ</th></tr></thead><tbody>{categoryRows.map((category) => { const count = category._count?.articles || 0; return <tr key={category.categoryId}><td>{category.categoryName}</td><td>{count}</td><td>{Number(category.totalViews || 0).toLocaleString('th-TH')}</td><td><div className="progress-track"><span style={{ width: `${Math.round(count * 100 / maxCategoryCount)}%` }}/></div></td><td><Link to={`/admin/articles?category=${category.categoryId}`}>ดูบทความ</Link></td></tr> })}</tbody></table></div></div>
-      <div className="dashboard-panel"><div className="dashboard-panel-heading"><div><span className="eyebrow">MOST VIEWED</span><h2>5 อันดับบทความยอดนิยม</h2></div><Link to="/admin/articles">จัดการบทความ →</Link></div>{(dashboard.topArticles || []).length ? <div className="admin-table-wrap"><table className="admin-table dashboard-table"><thead><tr><th>ชื่อบทความ</th><th>หมวดหมู่</th><th>ยอดวิว</th><th>ความพึงพอใจ</th><th>ทางลัด</th></tr></thead><tbody>{(dashboard.topArticles || []).map((article, index) => <tr key={article.articleId}><td><b>{index + 1}. {article.title}</b></td><td>{article.category?.categoryName || '—'}</td><td>{Number(article.viewCount || 0).toLocaleString('th-TH')}</td><td>{article.feedbackCount ? `${article.helpfulPercent}% (${article.helpfulCount}/${article.feedbackCount})` : 'ยังไม่มีผลประเมิน'}</td><td><div className="admin-row-actions"><Link to={`/articles/${article.articleId}`} target="_blank">ดูหน้าเว็บ</Link><Link to={`/admin/articles/${article.articleId}/edit`}>แก้ไข</Link></div></td></tr>)}</tbody></table></div> : <div className="dashboard-empty">ยังไม่มีบทความเผยแพร่</div>}</div>
+      <div className="dashboard-panel"><div className="dashboard-panel-heading"><div><span className="eyebrow">MOST VIEWED</span><h2>5 อันดับบทความยอดนิยม</h2></div><Link to="/admin/articles">จัดการบทความ →</Link></div>{(dashboard.topArticles || []).length ? <div className="admin-table-wrap"><table className="admin-table dashboard-table"><thead><tr><th>ชื่อบทความ</th><th>หมวดหมู่</th><th>ยอดวิว</th><th>ความพึงพอใจ</th><th>ทางลัด</th></tr></thead><tbody>{(dashboard.topArticles || []).map((article, index) => <tr key={article.articleId}><td><b>{index + 1}. {article.title}</b></td><td>{article.category?.categoryName || '—'}</td><td>{Number(article.viewCount || 0).toLocaleString('th-TH')}</td><td>{article.feedbackCount ? `${article.helpfulPercent}% (${article.helpfulCount}/${article.feedbackCount})` : 'ยังไม่มีผลประเมิน'}</td><td><div className="admin-row-actions"><Link to={`/articles/${article.articleId}?preview=1`} target="_blank" rel="opener">ดูหน้าเว็บ</Link><Link to={`/admin/articles/${article.articleId}/edit`}>แก้ไข</Link></div></td></tr>)}</tbody></table></div> : <div className="dashboard-empty">ยังไม่มีบทความเผยแพร่</div>}</div>
       <div className="dashboard-panel"><div className="dashboard-panel-heading"><div><span className="eyebrow">NO RESULT SEARCHES</span><h2>คำค้นที่หาไม่เจอ</h2></div></div>{insights.loading ? <p className="dashboard-empty">กำลังโหลดสถิติคำค้น...</p> : insights.error ? <p className="dashboard-empty" role="alert">{insights.error}</p> : insights.data?.zeroResultTerms?.length ? <div className="recent-article-list">{insights.data.zeroResultTerms.map((item) => <div className="recent-article-row" key={item.term}><span><b>{item.term}</b><small>ค้นหา {item.count.toLocaleString('th-TH')} ครั้ง · ล่าสุด {dateLabel(item.lastSearched)}</small></span><Link to={`/admin/articles/new?title=${encodeURIComponent(item.term)}`}>เขียนคู่มือเรื่องนี้</Link></div>)}</div> : <p className="dashboard-empty">ยังไม่มีคำค้นที่ไม่พบผลลัพธ์</p>}</div>
       <div className="dashboard-panel"><div className="dashboard-panel-heading"><div><span className="eyebrow">DAILY ARTICLE VIEWS</span><h2>ยอดเข้าชม {insightDays} วันล่าสุด</h2></div><label>ช่วงเวลา <select aria-label="เลือกช่วงเวลาสถิติยอดเข้าชม" value={insightDays} onChange={(event) => setInsightDays(Number(event.target.value))}><option value={7}>7 วัน</option><option value={30}>30 วัน</option><option value={90}>90 วัน</option></select></label></div>{insights.loading ? <p className="dashboard-empty">กำลังโหลดสถิติยอดเข้าชม...</p> : insights.error ? <p className="dashboard-empty" role="alert">{insights.error}</p> : insights.data?.viewsByDay?.length ? <DailyViewsChart rows={insights.data.viewsByDay}/> : <p className="dashboard-empty">ยังไม่มีข้อมูลยอดเข้าชม</p>}</div>
       <div className="dashboard-panel"><div className="dashboard-panel-heading"><div><span className="eyebrow">POPULAR SEARCH TERMS</span><h2>คำค้นยอดนิยม</h2></div></div>{insights.loading ? <p className="dashboard-empty">กำลังโหลดคำค้นยอดนิยม...</p> : insights.error ? <p className="dashboard-empty" role="alert">{insights.error}</p> : insights.data?.topTerms?.length ? <div className="admin-table-wrap"><table className="admin-table dashboard-table"><thead><tr><th>คำค้น</th><th>จำนวนครั้ง</th><th>ผลลัพธ์เฉลี่ย</th></tr></thead><tbody>{insights.data.topTerms.map((item) => <tr key={item.term}><td>{item.term}</td><td>{item.count.toLocaleString('th-TH')}</td><td>{item.avgResults.toLocaleString('th-TH')}</td></tr>)}</tbody></table></div> : <p className="dashboard-empty">ยังไม่มีข้อมูลคำค้น</p>}</div>
@@ -145,6 +183,7 @@ export function ArticleList() {
   const { data: articles, loading, error } = useAdminData(path, refresh)
   const [notice, setNotice] = useState(location.state?.notice || '')
   const [actionError, setActionError] = useState('')
+  useDocumentTitle('จัดการบทความ · ระบบเจ้าหน้าที่')
 
   async function setArticleStatus(article, nextStatus) {
     setActionError('')
@@ -189,6 +228,7 @@ function ArticleForm({ article }) {
   }))
   const [imageFile, setImageFile] = useState(null)
   const [pdfFile, setPdfFile] = useState(null)
+  useDocumentTitle(editing ? 'แก้ไขบทความ · ระบบเจ้าหน้าที่' : 'เพิ่มบทความ · ระบบเจ้าหน้าที่')
   const imagePreview = useMemo(() => imageFile ? URL.createObjectURL(imageFile) : '', [imageFile])
   useEffect(() => () => { if (imagePreview) URL.revokeObjectURL(imagePreview) }, [imagePreview])
   const setField = (field) => (event) => setForm((value) => ({ ...value, [field]: event.target.type === 'checkbox' ? event.target.checked : event.target.value }))
@@ -229,6 +269,7 @@ export function CategoryManager() {
   const [notice, setNotice] = useState('')
   const [actionError, setActionError] = useState('')
   const [busy, setBusy] = useState(false)
+  useDocumentTitle('จัดการหมวดหมู่ · ระบบเจ้าหน้าที่')
 
   function resetForm() { setEditingId(null); setName(''); setDescription(''); setActionError('') }
   function editCategory(category) { setEditingId(category.categoryId); setName(category.categoryName); setDescription(category.description || ''); setActionError('') }
@@ -253,6 +294,6 @@ export function CategoryManager() {
 }
 
 export default function AdminManagement({ admin, onLogout }) {
-  return <main className="admin-page"><header className="admin-topbar"><Link className="admin-brand" to="/admin"><span className="brand-mark">ICT</span><span><b>คลังความรู้ ICT</b><small>พื้นที่เจ้าหน้าที่</small></span></Link><nav className="admin-nav"><Link to="/admin">ภาพรวม</Link><Link to="/admin/articles">บทความ</Link><Link to="/admin/categories">หมวดหมู่</Link><Link to="/admin/settings">ตั้งค่า</Link><Link to="/" target="_blank">หน้าเว็บไซต์</Link></nav><div><span>{admin?.fullname || 'เจ้าหน้าที่'}</span><button onClick={onLogout}>ออกจากระบบ</button></div></header><Outlet/></main>
+  return <main className="admin-page"><header className="admin-topbar"><Link className="admin-brand" to="/admin"><span className="brand-mark">ICT</span><span><b>คลังความรู้ ICT</b><small>พื้นที่เจ้าหน้าที่</small></span></Link><nav className="admin-nav"><NavLink to="/admin" end>ภาพรวม</NavLink><NavLink to="/admin/articles">บทความ</NavLink><NavLink to="/admin/categories">หมวดหมู่</NavLink><NavLink to="/admin/settings">ตั้งค่า</NavLink><Link to="/" target="_blank">หน้าเว็บไซต์</Link></nav><div><span>{admin?.fullname || 'เจ้าหน้าที่'}</span><button onClick={onLogout}>ออกจากระบบ</button></div></header><Outlet/></main>
 }
 

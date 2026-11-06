@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { useEffect } from 'react'
 
 const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 const client = axios.create({
@@ -24,11 +25,32 @@ export function clearAdminToken() {
   try { window.sessionStorage.removeItem('ict-admin-token') } catch { /* Storage may be blocked. */ }
 }
 
+export function useDocumentTitle(title) {
+  useEffect(() => {
+    document.title = title ? `${title} | คลังความรู้ ICT ศูนย์ ICT ขอนแก่น` : 'คลังความรู้ ICT | ศูนย์ ICT ขอนแก่น'
+  }, [title])
+}
+
 client.interceptors.request.use((config) => {
   const token = getAdminToken()
   if (token) config.headers.Authorization = `Bearer ${token}`
+  // Lets the server count one view/search per browser even when a whole office shares one public IP.
+  if (/^\/articles\/(?:search|\d+)(?:[/?]|$)/.test(config.url || '')) config.headers['X-Visitor-Id'] = feedbackKey()
   return config
 })
+
+// When an admin session expires mid-work, send the user back to the login page instead of showing raw errors.
+client.interceptors.response.use(undefined, (error) => {
+  const url = error.config?.url || ''
+  if (error.response?.status === 401 && url.startsWith('/admin/') && getAdminToken()) {
+    clearAdminToken()
+    if (!window.location.pathname.startsWith('/admin/login')) window.location.assign('/admin/login?expired=1')
+  }
+  return Promise.reject(error)
+})
+
+const UPLOAD_TIMEOUT_MS = 120000
+const uploadConfig = (body) => (typeof FormData !== 'undefined' && body instanceof FormData ? { timeout: UPLOAD_TIMEOUT_MS } : undefined)
 
 function messageFrom(error) {
   if (error.response?.status === 404) return 'ไม่พบข้อมูลที่ต้องการ'
@@ -41,20 +63,20 @@ export const api = {
     try { return (await client.get(path)).data } catch (error) { throw new Error(messageFrom(error), { cause: error }) }
   },
   async post(path, body) {
-    try { return (await client.post(path, body)).data } catch (error) { throw new Error(messageFrom(error), { cause: error }) }
+    try { return (await client.post(path, body, uploadConfig(body))).data } catch (error) { throw new Error(messageFrom(error), { cause: error }) }
   },
   async put(path, body) {
     try { return (await client.put(path, body)).data } catch (error) { throw new Error(messageFrom(error), { cause: error }) }
   },
   async patch(path, body) {
-    try { return (await client.patch(path, body)).data } catch (error) { throw new Error(messageFrom(error), { cause: error }) }
+    try { return (await client.patch(path, body, uploadConfig(body))).data } catch (error) { throw new Error(messageFrom(error), { cause: error }) }
   },
   async delete(path) {
     try { return (await client.delete(path)).data } catch (error) { throw new Error(messageFrom(error), { cause: error }) }
   },
   async download(path, filename) {
     try {
-      const response = await client.get(path, { responseType: 'blob' })
+      const response = await client.get(path, { responseType: 'blob', timeout: 60000 })
       const url = URL.createObjectURL(response.data)
       const link = document.createElement('a')
       link.href = url
