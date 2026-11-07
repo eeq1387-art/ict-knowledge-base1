@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { prisma } from '../db.js'
 import { CONTACT_SETTING_KEY, DEFAULT_KKICT_CONTACT as defaultContact } from '../contactSettings.js'
+import { generateGuideMedia } from './generate-media.js'
 
 const sampleSearches = [
   { term: 'wifi', resultCount: 3, count: 14 },
@@ -358,14 +359,29 @@ async function main() {
     },
   })
 
-  for (const guide of guides) {
+  const mediaItems = await generateGuideMedia(guides)
+
+  for (let i = 0; i < guides.length; i += 1) {
+    const guide = guides[i]
+    const media = mediaItems[i]
     const { category, intro, detail, steps, views, status = 'PUBLISHED', ...fields } = guide
     const categoryId = categoryIds.get(category)
     const effectiveViews = zeroStats ? 0 : views
     const publishedAt = status === 'PUBLISHED' ? new Date(Date.now() - (views % 45) * 86400000) : null
     const content = detail ? `เกริ่นนำ\n${intro}\n\n${detail}` : `เกริ่นนำ\n${intro}`
-    const data = { ...fields, categoryId, content, steps, viewCount: effectiveViews, status, featured: Boolean(guide.featured), publishedAt }
-    const existing = await prisma.article.findFirst({ where: { title: guide.title }, select: { articleId: true } })
+    const existing = await prisma.article.findFirst({ where: { title: guide.title }, select: { articleId: true, image: true, pdfFile: true } })
+    const data = {
+      ...fields,
+      categoryId,
+      content,
+      steps,
+      image: existing?.image || media.imageUrl,
+      pdfFile: existing?.pdfFile || media.pdfUrl,
+      viewCount: effectiveViews,
+      status,
+      featured: Boolean(guide.featured),
+      publishedAt,
+    }
     const article = existing
       ? await prisma.article.update({ where: { articleId: existing.articleId }, data })
       : await prisma.article.create({ data })

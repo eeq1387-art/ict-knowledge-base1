@@ -31,11 +31,11 @@ function Alert({ type = 'error', children }) { return children ? <div className=
 
 function DailyViewsChart({ rows }) {
   const width = 760
-  const height = 240
+  const height = 220
   const padLeft = 44
   const padRight = 20
-  const padTop = 20
-  const padBottom = 32
+  const padTop = 18
+  const padBottom = 30
   const plotWidth = width - padLeft - padRight
   const plotHeight = height - padTop - padBottom
   const maximum = Math.max(4, ...rows.map((row) => row.views))
@@ -58,23 +58,18 @@ function DailyViewsChart({ rows }) {
     y: Number((baselineY - ratio * plotHeight).toFixed(1)),
   }))
   return <div className="insights-chart-wrap">
-    <div className="insights-kpis">
-      <div><span>ยอดเข้าชมรวมช่วงนี้</span><b>{total.toLocaleString('th-TH')} ครั้ง</b></div>
-      <div><span>เฉลี่ยต่อวัน</span><b>{average.toLocaleString('th-TH')} ครั้ง/วัน</b></div>
-      <div><span>สูงสุดในวันเดียว</span><b>{peak ? `${peak.views.toLocaleString('th-TH')} ครั้ง` : '—'}</b>{peak?.views > 0 && <small>{dateLabel(peak.day)}</small>}</div>
-    </div>
     <svg className="insights-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`กราฟยอดเข้าชมรวม ${total.toLocaleString('th-TH')} ครั้ง ใน ${rows.length} วัน`}>
       <title>{`ยอดเข้าชมรายวัน ${rows.length} วัน รวม ${total.toLocaleString('th-TH')} ครั้ง`}</title>
       <defs>
         <linearGradient id="ict-views-area" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#0f4c5c" stopOpacity="0.32"/>
-          <stop offset="65%" stopColor="#e9a23b" stopOpacity="0.12"/>
-          <stop offset="100%" stopColor="#e9a23b" stopOpacity="0.0"/>
+          <stop offset="0%" stopColor="#0e7490" stopOpacity="0.34"/>
+          <stop offset="65%" stopColor="#06b6d4" stopOpacity="0.12"/>
+          <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.0"/>
         </linearGradient>
         <linearGradient id="ict-views-stroke" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#0b3b49"/>
-          <stop offset="60%" stopColor="#0f4c5c"/>
-          <stop offset="100%" stopColor="#d98a1c"/>
+          <stop offset="0%" stopColor="#0b5d74"/>
+          <stop offset="55%" stopColor="#0891b2"/>
+          <stop offset="100%" stopColor="#f59e0b"/>
         </linearGradient>
       </defs>
       {ticks.map((tick) => <g key={tick.value}>
@@ -85,7 +80,14 @@ function DailyViewsChart({ rows }) {
       <polyline points={linePoints} className="insights-chart-line"/>
       {coordinates.map((row) => <circle key={row.day} cx={row.x} cy={row.y} r={peak?.day === row.day && row.views > 0 ? '5.5' : '4'} className={`insights-chart-point${peak?.day === row.day && row.views > 0 ? ' is-peak' : ''}`}><title>{`${row.day}: ${row.views.toLocaleString('th-TH')} ครั้ง`}</title></circle>)}
     </svg>
-    <div className="insights-chart-summary"><span>เริ่ม {dateLabel(rows[0]?.day)}</span><b>รวมทั้งหมด {total.toLocaleString('th-TH')} ครั้ง ใน {rows.length} วัน</b><span>ถึง {dateLabel(rows.at(-1)?.day)}</span></div>
+    <div className="insights-chart-summary">
+      <span>{dateLabel(rows[0]?.day)} – {dateLabel(rows.at(-1)?.day)}</span>
+      <div className="insights-inline-stats">
+        <span>รวมช่วงนี้ <b>{total.toLocaleString('th-TH')} ครั้ง</b></span>
+        <span>เฉลี่ย <b>{average.toLocaleString('th-TH')} ครั้ง/วัน</b></span>
+        {peak?.views > 0 && <span>สูงสุด <b>{peak.views.toLocaleString('th-TH')} ครั้ง</b> ({dateLabel(peak.day)})</span>}
+      </div>
+    </div>
   </div>
 }
 
@@ -176,6 +178,7 @@ export function AdminHome() {
   const [refresh, setRefresh] = useState(0)
   const { data, loading, error } = useAdminData('/admin/dashboard', refresh)
   const [insightDays, setInsightDays] = useState(30)
+  const [overviewTab, setOverviewTab] = useState('popular')
   const insights = useAdminData(`/admin/insights?days=${insightDays}`)
   const [actionError, setActionError] = useState('')
   const dashboard = data || {}
@@ -194,33 +197,26 @@ export function AdminHome() {
   const maxCategoryCount = Math.max(1, ...categoryRows.map((category) => category._count?.articles || 0))
   const totalCategoryArticles = Math.max(1, categoryRows.reduce((sum, category) => sum + (category._count?.articles || 0), 0))
   const maxTopTermCount = Math.max(1, ...(insights.data?.topTerms || []).map((item) => item.count || 0))
-  const todayText = new Intl.DateTimeFormat('th-TH', { dateStyle: 'long' }).format(new Date())
+  const pendingCount = (dashboard.pendingDrafts?.length || 0) + (dashboard.negativeFeedback?.length || 0)
   return <section className="admin-content admin-dashboard">
-    <div className="dashboard-hero">
-      <div className="admin-title-row">
-        <div>
-          <span className="eyebrow">STAFF COMMAND CENTER • ศูนย์ ICT ขอนแก่น</span>
-          <h1>ภาพรวมคลังความรู้</h1>
-          <p className="admin-muted">ข้อมูลสรุปจากบทความ การเข้าชม คำค้นหา และผลประเมินความพึงพอใจ · ข้อมูล ณ วันที่ {todayText}</p>
-        </div>
+    <div className="admin-title-row dashboard-header-row">
+      <div>
+        <span className="eyebrow">OVERVIEW • ศูนย์พัฒนาทักษะและการเรียนรู้ ICT ขอนแก่น</span>
+        <h1>ภาพรวมคลังความรู้</h1>
+        <p className="admin-muted">สรุปสถิติการเข้าชม คำค้นหาของผู้ใช้งาน และสถานะบทความในระบบ</p>
       </div>
       <div className="dashboard-quick-actions">
+        <button type="button" className="admin-secondary-link" onClick={exportCsv}>⇣ ส่งออก CSV</button>
         <Link className="admin-primary-link" to="/admin/articles/new">＋ เขียนบทความใหม่</Link>
-        <Link className="admin-secondary-link" to="/admin/articles">จัดการบทความ</Link>
-        <Link className="admin-secondary-link" to="/admin/categories">จัดการหมวดหมู่</Link>
-        <Link className="admin-secondary-link" to="/" target="_blank">เปิดดูหน้าเว็บไซต์จริง ↗</Link>
-        <button className="admin-secondary-link" onClick={exportCsv}>⇣ ดาวน์โหลดรายงานสถิติ (CSV)</button>
       </div>
     </div>
     <Alert>{error || actionError}</Alert>
     {loading ? <p className="admin-loading">กำลังโหลดข้อมูล...</p> : <>
       <div className="dashboard-cards">
-        <div><div className="kpi-head"><span>บทความทั้งหมด</span><i className="kpi-icon" aria-hidden="true">▤</i></div><b>{Number(dashboard.articleCount || 0).toLocaleString('th-TH')}</b><small>รวมทุกสถานะในคลังความรู้</small></div>
-        <div><div className="kpi-head"><span>เผยแพร่แล้ว</span><i className="kpi-icon" aria-hidden="true">✓</i></div><b>{Number(dashboard.publishedCount || 0).toLocaleString('th-TH')}</b><small>พร้อมให้บริการประชาชนและบุคลากร</small></div>
-        <div><div className="kpi-head"><span>ฉบับร่าง / ซ่อน</span><i className="kpi-icon" aria-hidden="true">✎</i></div><b>{(Number(dashboard.draftCount || 0) + Number(dashboard.hiddenCount || 0)).toLocaleString('th-TH')}</b><small>ฉบับร่าง {dashboard.draftCount || 0} · ซ่อน {dashboard.hiddenCount || 0} รายการ</small></div>
-        <div><div className="kpi-head"><span>หมวดหมู่ทั้งหมด</span><i className="kpi-icon" aria-hidden="true">▣</i></div><b>{Number(dashboard.categoryCount || 0).toLocaleString('th-TH')}</b><small>หมวดความรู้ด้านเทคโนโลยีสารสนเทศ</small></div>
-        <div><div className="kpi-head"><span>ยอดเข้าชมรวมทั้งหมด</span><i className="kpi-icon" aria-hidden="true">◉</i></div><b>{Number(dashboard.totalViews || 0).toLocaleString('th-TH')}</b><small>ยอดเปิดอ่านสะสมทุกบทความ</small></div>
-        <div className="satisfaction-card"><div className="kpi-head"><span>อัตราความพึงพอใจรวม</span><i className="kpi-icon" aria-hidden="true">★</i></div><b>{Number(dashboard.helpfulPercent || 0)}%</b><div className="satisfaction-meter" aria-hidden="true"><span style={{ width: `${Math.min(100, Number(dashboard.helpfulPercent || 0))}%` }}/></div><small>มีประโยชน์ {dashboard.helpfulCount || 0} จาก {dashboard.feedbackCount || 0} โหวต</small></div>
+        <div><div className="kpi-head"><span>บทความที่เผยแพร่</span><i className="kpi-icon" aria-hidden="true">✓</i></div><b>{Number(dashboard.publishedCount || 0).toLocaleString('th-TH')}</b><small>จากทั้งหมด {Number(dashboard.articleCount || 0).toLocaleString('th-TH')} บทความ (ร่าง/ซ่อน {Number(dashboard.draftCount || 0) + Number(dashboard.hiddenCount || 0)})</small></div>
+        <div><div className="kpi-head"><span>หมวดหมู่ความรู้</span><i className="kpi-icon" aria-hidden="true">▣</i></div><b>{Number(dashboard.categoryCount || 0).toLocaleString('th-TH')}</b><small>กลุ่มหัวข้อบริการและคู่มือไอที</small></div>
+        <div><div className="kpi-head"><span>ยอดเข้าชมสะสม</span><i className="kpi-icon" aria-hidden="true">◉</i></div><b>{Number(dashboard.totalViews || 0).toLocaleString('th-TH')}</b><small>จำนวนครั้งที่เปิดอ่านคู่มือทั้งหมด</small></div>
+        <div className="satisfaction-card"><div className="kpi-head"><span>อัตราความพึงพอใจ</span><i className="kpi-icon" aria-hidden="true">★</i></div><b>{Number(dashboard.helpfulPercent || 0)}%</b><div className="satisfaction-meter" aria-hidden="true"><span style={{ width: `${Math.min(100, Number(dashboard.helpfulPercent || 0))}%` }}/></div><small>มีประโยชน์ {dashboard.helpfulCount || 0} จาก {dashboard.feedbackCount || 0} โหวต</small></div>
       </div>
 
       <div className="dashboard-panel dashboard-chart-panel">
@@ -229,45 +225,47 @@ export function AdminHome() {
           <label className="insights-range-picker">ช่วงเวลา <select aria-label="เลือกช่วงเวลาสถิติยอดเข้าชม" value={insightDays} onChange={(event) => setInsightDays(Number(event.target.value))}><option value={7}>7 วันล่าสุด</option><option value={30}>30 วันล่าสุด</option><option value={90}>90 วันล่าสุด</option></select></label>
         </div>
         {insights.loading ? <p className="dashboard-empty">กำลังโหลดสถิติยอดเข้าชม...</p> : insights.error ? <p className="dashboard-empty" role="alert">{insights.error}</p> : insights.data?.viewsByDay?.length ? <DailyViewsChart rows={insights.data.viewsByDay}/> : <p className="dashboard-empty">ยังไม่มีข้อมูลยอดเข้าชม</p>}
-        {!!insights.data?.topArticlesInRange?.length && <div className="insights-top-strip"><span>บทความที่มีผู้อ่านสูงสุดในช่วง {insightDays} วันนี้:</span><div>{insights.data.topArticlesInRange.map((item, idx) => <Link key={item.articleId} to={`/admin/articles/${item.articleId}/edit`}><b>#{idx + 1}</b> {item.title} <em>({item.views.toLocaleString('th-TH')} ครั้ง)</em></Link>)}</div></div>}
       </div>
 
       <div className="dashboard-columns">
         <div className="dashboard-panel">
           <div className="dashboard-panel-heading"><div><span className="eyebrow">NO RESULT SEARCHES</span><h2>คำค้นที่หาไม่เจอ</h2></div><span className="panel-pill panel-pill-warn">โอกาสเขียนคู่มือใหม่</span></div>
-          {insights.loading ? <p className="dashboard-empty">กำลังโหลดสถิติคำค้น...</p> : insights.error ? <p className="dashboard-empty" role="alert">{insights.error}</p> : insights.data?.zeroResultTerms?.length ? <div className="recent-article-list">{insights.data.zeroResultTerms.map((item) => <div className="recent-article-row zero-term-row" key={item.term}><span><b>“{item.term}”</b><small>ค้นหา {item.count.toLocaleString('th-TH')} ครั้ง · ล่าสุด {dateLabel(item.lastSearched)}</small></span><Link className="write-guide-btn" to={`/admin/articles/new?title=${encodeURIComponent(item.term)}`}>＋ เขียนคู่มือเรื่องนี้</Link></div>)}</div> : <p className="dashboard-empty">ยังไม่มีคำค้นที่ไม่พบผลลัพธ์</p>}
+          {insights.loading ? <p className="dashboard-empty">กำลังโหลดสถิติคำค้น...</p> : insights.error ? <p className="dashboard-empty" role="alert">{insights.error}</p> : insights.data?.zeroResultTerms?.length ? <div className="recent-article-list">{insights.data.zeroResultTerms.map((item) => <div className="recent-article-row zero-term-row" key={item.term}><span><b>“{item.term}”</b><small>ค้นหา {item.count.toLocaleString('th-TH')} ครั้ง · ล่าสุด {dateLabel(item.lastSearched)}</small></span><Link className="write-guide-btn" to={`/admin/articles/new?title=${encodeURIComponent(item.term)}`}>＋ เขียนคู่มือนี้</Link></div>)}</div> : <p className="dashboard-empty">ยังไม่มีคำค้นที่ไม่พบผลลัพธ์</p>}
         </div>
 
         <div className="dashboard-panel">
           <div className="dashboard-panel-heading"><div><span className="eyebrow">POPULAR SEARCH TERMS</span><h2>คำค้นยอดนิยม</h2></div><span className="panel-pill">{insightDays} วันล่าสุด</span></div>
-          {insights.loading ? <p className="dashboard-empty">กำลังโหลดคำค้นยอดนิยม...</p> : insights.error ? <p className="dashboard-empty" role="alert">{insights.error}</p> : insights.data?.topTerms?.length ? <div className="admin-table-wrap"><table className="admin-table dashboard-table dashboard-compact-table"><thead><tr><th>คำค้น</th><th>ความถี่ในการค้นหา</th><th>ผลลัพธ์เฉลี่ย</th></tr></thead><tbody>{insights.data.topTerms.map((item, idx) => <tr key={item.term}><td><span className={`rank-badge rank-${idx + 1}`}>{idx + 1}</span> <b>{item.term}</b></td><td><div className="term-bar-cell"><b>{item.count.toLocaleString('th-TH')} ครั้ง</b><div className="progress-track"><span style={{ width: `${Math.max(10, Math.round(item.count * 100 / maxTopTermCount))}%` }}/></div></div></td><td><span className={`result-count-pill${item.avgResults === 0 ? ' is-zero' : ''}`}>{item.avgResults.toLocaleString('th-TH')} บทความ</span></td></tr>)}</tbody></table></div> : <p className="dashboard-empty">ยังไม่มีข้อมูลคำค้น</p>}
+          {insights.loading ? <p className="dashboard-empty">กำลังโหลดคำค้นยอดนิยม...</p> : insights.error ? <p className="dashboard-empty" role="alert">{insights.error}</p> : insights.data?.topTerms?.length ? <div className="admin-table-wrap"><table className="admin-table dashboard-table dashboard-compact-table"><thead><tr><th>คำค้น</th><th>ความถี่</th><th>ผลลัพธ์เฉลี่ย</th></tr></thead><tbody>{insights.data.topTerms.map((item, idx) => <tr key={item.term}><td><span className={`rank-badge rank-${idx + 1}`}>{idx + 1}</span> <b>{item.term}</b></td><td><div className="term-bar-cell"><b>{item.count.toLocaleString('th-TH')} ครั้ง</b><div className="progress-track"><span style={{ width: `${Math.max(10, Math.round(item.count * 100 / maxTopTermCount))}%` }}/></div></div></td><td><span className={`result-count-pill${item.avgResults === 0 ? ' is-zero' : ''}`}>{item.avgResults.toLocaleString('th-TH')} บทความ</span></td></tr>)}</tbody></table></div> : <p className="dashboard-empty">ยังไม่มีข้อมูลคำค้น</p>}
         </div>
       </div>
 
-      <div className="dashboard-panel">
-        <div className="dashboard-panel-heading"><div><span className="eyebrow">MOST VIEWED</span><h2>5 อันดับบทความยอดนิยม</h2></div><Link to="/admin/articles">จัดการบทความทั้งหมด →</Link></div>
-        {(dashboard.topArticles || []).length ? <div className="admin-table-wrap"><table className="admin-table dashboard-table"><thead><tr><th>ชื่อบทความ</th><th>หมวดหมู่</th><th>ยอดวิว</th><th>ความพึงพอใจ</th><th>ทางลัด</th></tr></thead><tbody>{(dashboard.topArticles || []).map((article, index) => <tr key={article.articleId}><td><div className="ranked-title"><span className={`rank-badge rank-${index + 1}`}>{index + 1}</span><b>{article.title}</b></div></td><td><span className="category-chip">{article.category?.categoryName || '—'}</span></td><td><b className="metric-num">{Number(article.viewCount || 0).toLocaleString('th-TH')}</b> <small>ครั้ง</small></td><td>{article.feedbackCount ? <div className="satisfaction-cell"><b>{article.helpfulPercent}%</b> <small>({article.helpfulCount}/{article.feedbackCount})</small><div className="progress-track satisfaction-track"><span style={{ width: `${article.helpfulPercent}%` }}/></div></div> : <span className="admin-muted">ยังไม่มีผลประเมิน</span>}</td><td><div className="admin-row-actions"><Link to={`/articles/${article.articleId}?preview=1`} target="_blank" rel="opener">ดูหน้าเว็บ</Link><Link to={`/admin/articles/${article.articleId}/edit`}>แก้ไข</Link></div></td></tr>)}</tbody></table></div> : <div className="dashboard-empty">ยังไม่มีบทความเผยแพร่</div>}
-      </div>
+      <div className="dashboard-panel dashboard-tabbed-panel">
+        <div className="dashboard-panel-heading dashboard-tabs-head">
+          <div className="admin-tabs" role="tablist" aria-label="ข้อมูลสรุปคลังความรู้">
+            <button type="button" role="tab" aria-selected={overviewTab === 'popular'} className={overviewTab === 'popular' ? 'active' : ''} onClick={() => setOverviewTab('popular')}>5 อันดับบทความยอดนิยม</button>
+            <button type="button" role="tab" aria-selected={overviewTab === 'categories'} className={overviewTab === 'categories' ? 'active' : ''} onClick={() => setOverviewTab('categories')}>สัดส่วนตามหมวดหมู่</button>
+            <button type="button" role="tab" aria-selected={overviewTab === 'activity'} className={overviewTab === 'activity' ? 'active' : ''} onClick={() => setOverviewTab('activity')}>อัปเดตล่าสุด & งานรอจัดการ {pendingCount > 0 && <span className="tab-count-badge">{pendingCount}</span>}</button>
+          </div>
+          <Link to={overviewTab === 'categories' ? '/admin/categories' : '/admin/articles'}>{overviewTab === 'categories' ? 'จัดการหมวดหมู่ →' : 'จัดการบทความทั้งหมด →'}</Link>
+        </div>
 
-      <div className="dashboard-panel">
-        <div className="dashboard-panel-heading"><div><span className="eyebrow">CATEGORY BREAKDOWN</span><h2>สัดส่วนบทความตามหมวดหมู่</h2></div><Link to="/admin/categories">จัดการหมวดหมู่ →</Link></div>
-        <div className="admin-table-wrap"><table className="admin-table dashboard-table"><thead><tr><th>หมวดหมู่</th><th>จำนวนบทความ</th><th>ยอดเข้าชมสะสม</th><th>สัดส่วนคลังความรู้</th><th>เปิดรายการ</th></tr></thead><tbody>{categoryRows.map((category) => { const count = category._count?.articles || 0; const share = Math.round(count * 100 / totalCategoryArticles); return <tr key={category.categoryId}><td><b>{category.categoryName}</b></td><td><b>{count}</b> <small>บทความ</small></td><td><b className="metric-num">{Number(category.totalViews || 0).toLocaleString('th-TH')}</b> <small>ครั้ง</small></td><td><div className="category-share-cell"><div className="progress-track"><span style={{ width: `${Math.round(count * 100 / maxCategoryCount)}%` }}/></div><small>{share}%</small></div></td><td><Link to={`/admin/articles?category=${category.categoryId}`}>ดูบทความ →</Link></td></tr> })}</tbody></table></div>
-      </div>
+        {overviewTab === 'popular' && ((dashboard.topArticles || []).length ? <div className="admin-table-wrap"><table className="admin-table dashboard-table"><thead><tr><th>ชื่อบทความ</th><th>หมวดหมู่</th><th>ยอดวิว</th><th>ความพึงพอใจ</th><th>ทางลัด</th></tr></thead><tbody>{(dashboard.topArticles || []).map((article, index) => <tr key={article.articleId}><td><div className="ranked-title"><span className={`rank-badge rank-${index + 1}`}>{index + 1}</span><b>{article.title}</b></div></td><td><span className="category-chip">{article.category?.categoryName || '—'}</span></td><td><b className="metric-num">{Number(article.viewCount || 0).toLocaleString('th-TH')}</b> <small>ครั้ง</small></td><td>{article.feedbackCount ? <div className="satisfaction-cell"><b>{article.helpfulPercent}%</b> <small>({article.helpfulCount}/{article.feedbackCount})</small><div className="progress-track satisfaction-track"><span style={{ width: `${article.helpfulPercent}%` }}/></div></div> : <span className="admin-muted">ยังไม่มีผลประเมิน</span>}</td><td><div className="admin-row-actions"><Link to={`/articles/${article.articleId}?preview=1`} target="_blank" rel="opener">ดูหน้าเว็บ</Link><Link to={`/admin/articles/${article.articleId}/edit`}>แก้ไข</Link></div></td></tr>)}</tbody></table></div> : <div className="dashboard-empty">ยังไม่มีบทความเผยแพร่</div>)}
 
-      <div className="dashboard-columns">
-        <section className="dashboard-panel">
-          <div className="dashboard-panel-heading"><div><span className="eyebrow">PENDING DRAFTS</span><h2>ฉบับร่างที่รอเผยแพร่</h2></div><span className="panel-pill">{(dashboard.pendingDrafts || []).length} รายการ</span></div>
-          {(dashboard.pendingDrafts || []).length ? <div className="recent-article-list">{(dashboard.pendingDrafts || []).map((article) => <div className="recent-article-row" key={article.articleId}><Link to={`/admin/articles/${article.articleId}/edit`}><span>{article.title}</span><small>{article.category?.categoryName || '—'} · อัปเดต {dateLabel(article.updatedAt)}</small></Link><button onClick={() => publishNow(article)}>เผยแพร่ทันที</button></div>)}</div> : <p className="dashboard-empty">ไม่มีฉบับร่างที่รอเผยแพร่</p>}
-        </section>
-        <section className="dashboard-panel">
-          <div className="dashboard-panel-heading"><div><span className="eyebrow">NEEDS IMPROVEMENT</span><h2>ข้อเสนอแนะที่ควรปรับปรุง</h2></div><span className="panel-pill panel-pill-warn">ตรวจสอบเนื้อหา</span></div>
-          {(dashboard.negativeFeedback || []).length ? <div className="recent-article-list">{(dashboard.negativeFeedback || []).map((article) => <Link key={article.articleId} to={`/admin/articles/${article.articleId}/edit`}><span>{article.title}</span><small>👎 ไม่มีประโยชน์ {article.notHelpfulCount} · 👍 มีประโยชน์ {article.helpfulCount}</small></Link>)}</div> : <p className="dashboard-empty">ยังไม่มีบทความที่ได้รับข้อเสนอแนะเชิงลบ</p>}
-        </section>
-      </div>
+        {overviewTab === 'categories' && <div className="admin-table-wrap"><table className="admin-table dashboard-table"><thead><tr><th>หมวดหมู่</th><th>จำนวนบทความ</th><th>ยอดเข้าชมสะสม</th><th>สัดส่วนคลังความรู้</th><th>เปิดรายการ</th></tr></thead><tbody>{categoryRows.map((category) => { const count = category._count?.articles || 0; const share = Math.round(count * 100 / totalCategoryArticles); return <tr key={category.categoryId}><td><b>{category.categoryName}</b></td><td><b>{count}</b> <small>บทความ</small></td><td><b className="metric-num">{Number(category.totalViews || 0).toLocaleString('th-TH')}</b> <small>ครั้ง</small></td><td><div className="category-share-cell"><div className="progress-track"><span style={{ width: `${Math.round(count * 100 / maxCategoryCount)}%` }}/></div><small>{share}%</small></div></td><td><Link to={`/admin/articles?category=${category.categoryId}`}>ดูบทความ →</Link></td></tr> })}</tbody></table></div>}
 
-      <div className="dashboard-panel recent-panel">
-        <div className="dashboard-panel-heading"><div><span className="eyebrow">RECENT UPDATES</span><h2>บทความที่อัปเดตล่าสุด</h2></div><Link to="/admin/articles">ดูทั้งหมด →</Link></div>
-        <div className="recent-article-list">{(dashboard.recentArticles || []).map((article) => <div className="recent-article-row" key={article.articleId}><Link to={`/admin/articles/${article.articleId}/edit`}><span>{article.title}</span><small><StatusBadge status={article.status}/> · อัปเดตเมื่อ {dateLabel(article.updatedAt)}</small></Link>{article.status === 'DRAFT' && <button onClick={() => publishNow(article)}>เผยแพร่ทันที</button>}</div>)}</div>
+        {overviewTab === 'activity' && <div className="dashboard-columns dashboard-activity-grid">
+          <div>
+            <h3 className="subpanel-title">บทความที่อัปเดตล่าสุด</h3>
+            <div className="recent-article-list">{(dashboard.recentArticles || []).map((article) => <div className="recent-article-row" key={article.articleId}><Link to={`/admin/articles/${article.articleId}/edit`}><span>{article.title}</span><small><StatusBadge status={article.status}/> · อัปเดตเมื่อ {dateLabel(article.updatedAt)}</small></Link>{article.status === 'DRAFT' && <button onClick={() => publishNow(article)}>เผยแพร่ทันที</button>}</div>)}</div>
+          </div>
+          <div>
+            <h3 className="subpanel-title">ฉบับร่าง & ข้อเสนอแนะที่ควรตรวจสอบ</h3>
+            {(dashboard.pendingDrafts || []).length || (dashboard.negativeFeedback || []).length ? <div className="recent-article-list">
+              {(dashboard.pendingDrafts || []).map((article) => <div className="recent-article-row" key={`draft-${article.articleId}`}><Link to={`/admin/articles/${article.articleId}/edit`}><span>{article.title}</span><small><StatusBadge status="DRAFT"/> · {article.category?.categoryName || '—'} · {dateLabel(article.updatedAt)}</small></Link><button onClick={() => publishNow(article)}>เผยแพร่ทันที</button></div>)}
+              {(dashboard.negativeFeedback || []).map((article) => <Link key={`fb-${article.articleId}`} to={`/admin/articles/${article.articleId}/edit`}><span>{article.title}</span><small>👎 ไม่ช่วยแก้ปัญหา {article.notHelpfulCount} · 👍 มีประโยชน์ {article.helpfulCount}</small></Link>)}
+            </div> : <p className="dashboard-empty">ไม่มีฉบับร่างค้างหรือข้อเสนอแนะเชิงลบในขณะนี้</p>}
+          </div>
+        </div>}
       </div>
     </>}
   </section>
