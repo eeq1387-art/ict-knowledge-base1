@@ -1,7 +1,8 @@
 import axios from 'axios'
 import { useEffect } from 'react'
 
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+const isLocalhost = typeof window === 'undefined' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+const apiBase = import.meta.env.VITE_API_URL || (isLocalhost ? 'http://localhost:3000/api' : '/api')
 const client = axios.create({
   baseURL: apiBase,
   timeout: 10000,
