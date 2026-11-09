@@ -214,23 +214,112 @@ function ArticlePage() {
   const steps = Array.isArray(article.steps) ? article.steps : []
   const paragraphs = (article.content || '').split(/\n{2,}/).filter(Boolean)
   const relatedArticles = (related.data || []).filter((item) => item.articleId !== article.articleId).slice(0, 4)
+  const quickHelpHref = contactActionHref(contact.data)
   return <main className="article-detail shell">
     {preview && <div className="preview-banner" role="status"><b>โหมดดูตัวอย่างของเจ้าหน้าที่</b><span>การเปิดหน้านี้จะไม่ถูกนับเป็นยอดเข้าชม</span></div>}
-    <div className="breadcrumbs"><Link to="/">หน้าแรก</Link><span>/</span><Link to={`/articles?category=${article.categoryId}`}>{article.category?.categoryName || 'คลังบทความ'}</Link><span>/</span><span>{article.title}</span></div>
-    <div className="detail-layout"><article className="detail-main"><div className="article-meta"><Link to={`/articles?category=${article.categoryId}`}>{article.category?.categoryName}</Link><span>เผยแพร่ {dateLabel(article.publishedAt || article.createdAt)}</span></div><h1>{article.title}</h1><div className="detail-stats"><span>◷ {Number(article.viewCount || 0).toLocaleString('th-TH')} ครั้ง</span><span>อัปเดตล่าสุด {dateLabel(article.updatedAt)}</span></div>
-      <div className="article-tools"><button className="print-button" onClick={copyLink}>{copied ? '✓ คัดลอกลิงก์แล้ว' : '⧉ คัดลอกลิงก์คู่มือ'}</button><button className="print-button" onClick={() => window.print()}>▤ พิมพ์คู่มือ / บันทึกเป็น PDF</button>{copyError && <span role="status">{copyError}</span>}</div>
-      {article.image ? <button className="detail-image-button" onClick={() => setLightbox(true)} aria-label="ขยายภาพประกอบ"><img className="detail-image" src={assetUrl(article.image)} alt={`ภาพประกอบ ${article.title}`}/><span>คลิกเพื่อขยายภาพ</span></button> : <div className="detail-placeholder" aria-label={`หมวดหมู่ ${article.category?.categoryName}`}><span>{categoryIcons[(Number(article.categoryId || 1) - 1) % categoryIcons.length] || '▣'}</span><b>{article.category?.categoryName || 'คู่มือ ICT'}</b></div>}
-      <div className="article-content">{paragraphs.map((paragraph, index) => {
-        const intro = paragraph.match(/^เกริ่นนำ\s*\n?([\s\S]*)$/)
-        return intro ? <section key={`paragraph-${index}`}><h2>เกริ่นนำ</h2><p>{intro[1]}</p></section> : <p key={`paragraph-${index}`}>{paragraph}</p>
-      })}</div>
-      {steps.length > 0 && <section className="steps-box"><h2>ขั้นตอนการแก้ไขปัญหา (Step-by-step)</h2><ol>{steps.map((step, index) => <li key={`step-${index}`}>{typeof step === 'string' ? step.replace(/^\s*\d+[.)]\s*/, '') : step?.text || JSON.stringify(step)}</li>)}</ol></section>}
-      {article.pdfFile && <section className="pdf-banner"><div><b>คู่มือฉบับ PDF</b><p>เปิดอ่านในเบราว์เซอร์หรือดาวน์โหลดเพื่อใช้งานภายหลัง</p></div><div><a className="print-button" href={assetUrl(article.pdfFile)} target="_blank" rel="noreferrer">เปิดอ่านไฟล์ PDF</a><a className="download-button" href={assetUrl(article.pdfFile)} download>ดาวน์โหลดไฟล์ PDF</a></div></section>}
-      {Array.isArray(article.keywords) && article.keywords.length > 0 && <div className="article-keywords" aria-label="คำสำคัญของบทความ"><b>คำค้นและหัวข้อที่เกี่ยวข้อง:</b><div className="keyword-list">{article.keywords.map((keyword) => <Link key={keyword} className="keyword-tag" to={`/search?q=${encodeURIComponent(keyword)}`}>#{keyword}</Link>)}</div></div>}
-      <div className="feedback-box"><b>คู่มือนี้ช่วยให้คุณแก้ปัญหาได้หรือไม่?</b><p className="feedback-count">มีผู้ประเมิน {Number(feedbackCount || 0)} คน · มีประโยชน์ {Number(helpfulCount || 0)} คน ({feedbackCount ? Math.round(helpfulCount * 100 / feedbackCount) : 0}%)</p>{voteValue === 'yes' || voteValue === 'no' || storedVote ? <p className="thanks">ขอบคุณสำหรับความคิดเห็นของคุณ</p> : voteValue ? <p className="feedback-error">{voteValue}</p> : <div><button disabled={sending} onClick={() => sendVote(true)}>👍 มีประโยชน์</button><button disabled={sending} onClick={() => sendVote(false)}>👎 ไม่มีประโยชน์</button></div>}</div>
-      <ContactCard contact={contact.data} title="คู่มือนี้ยังไม่ช่วยแก้ปัญหา? ติดต่อเจ้าหน้าที่" className="article-contact-card"/>
-      <section className="related-section"><h2>บทความที่เกี่ยวข้อง</h2>{relatedArticles.length ? <div className="article-grid">{relatedArticles.map((item) => <ArticleCard key={item.articleId} article={item}/>)}</div> : <Link to={`/articles?category=${article.categoryId}`}>ดูบทความเพิ่มเติมในหมวดหมู่นี้ →</Link>}</section>
-    </article><aside className="detail-aside"><div className="aside-card"><span className="eyebrow">ข้อมูลคู่มือ</span><b>รายละเอียดบทความ</b><p>หมวดหมู่ <Link to={`/articles?category=${article.categoryId}`}>{article.category?.categoryName}</Link></p><p>เผยแพร่เมื่อ <span>{dateLabel(article.publishedAt || article.createdAt)}</span></p><p>แก้ไขล่าสุด <span>{dateLabel(article.updatedAt)}</span></p><p>จำนวนเข้าชม <span>{Number(article.viewCount || 0).toLocaleString('th-TH')} ครั้ง</span></p></div></aside></div>
+
+    <header className="article-hero-card">
+      <div className="article-hero-main">
+        <div className="breadcrumbs"><Link to="/">หน้าแรก</Link><span>/</span><Link to={`/articles?category=${article.categoryId}`}>{article.category?.categoryName || 'คลังบทความ'}</Link><span>/</span><span>{article.title}</span></div>
+        <div className="article-meta"><Link to={`/articles?category=${article.categoryId}`}>{article.category?.categoryName}</Link><span>เผยแพร่ {dateLabel(article.publishedAt || article.createdAt)}</span></div>
+        <h1>{article.title}</h1>
+        <div className="detail-stats">
+          <span>◷ เข้าชม {Number(article.viewCount || 0).toLocaleString('th-TH')} ครั้ง</span>
+          <span>✎ อัปเดตล่าสุด {dateLabel(article.updatedAt)}</span>
+          {steps.length > 0 && <span>✓ {steps.length} ขั้นตอนปฏิบัติ</span>}
+          {article.pdfFile && <span>📄 มีไฟล์คู่มือ PDF</span>}
+        </div>
+        <div className="article-tools">
+          <button className="print-button" onClick={copyLink}>{copied ? '✓ คัดลอกลิงก์แล้ว' : '⧉ คัดลอกลิงก์คู่มือ'}</button>
+          <button className="print-button" onClick={() => window.print()}>▤ พิมพ์คู่มือ / บันทึกเป็น PDF</button>
+          {article.pdfFile && <a className="download-button hero-pdf-btn" href={assetUrl(article.pdfFile)} download>⬇ ดาวน์โหลด PDF</a>}
+          {copyError && <span role="status">{copyError}</span>}
+        </div>
+      </div>
+      <div className="article-hero-badge" aria-hidden="true">
+        <div className="hero-badge-inner">
+          <span className="hero-badge-icon">ICT</span>
+          <b>เอกสารคู่มือมาตรฐาน</b>
+          <small>ศูนย์พัฒนาทักษะและการเรียนรู้ ICT เทศบาลนครขอนแก่น</small>
+          <div className="hero-badge-pills">
+            <span>{steps.length || 4} ขั้นตอนชัดเจน</span>
+            <span>พร้อมใช้งาน 24 ชม.</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div className="detail-layout">
+      <article className="detail-main">
+        {article.image ? <button className="detail-image-button" onClick={() => setLightbox(true)} aria-label="ขยายภาพประกอบ"><img className="detail-image" src={assetUrl(article.image)} alt={`ภาพประกอบ ${article.title}`}/><span>🔍 คลิกเพื่อขยายภาพอินโฟกราฟิก</span></button> : <div className="detail-placeholder" aria-label={`หมวดหมู่ ${article.category?.categoryName}`}><span>{categoryIcons[(Number(article.categoryId || 1) - 1) % categoryIcons.length] || '▣'}</span><b>{article.category?.categoryName || 'คู่มือ ICT'}</b></div>}
+
+        <div id="article-intro" className="article-content">
+          <div className="content-section-bar"><span>📖 รายละเอียดและคำอธิบายประกอบ</span><small>อ่านทำความเข้าใจก่อนเริ่มปฏิบัติตามขั้นตอน</small></div>
+          {paragraphs.map((paragraph, index) => {
+            const headingMatch = paragraph.match(/^(เกริ่นนำ|ข้อควรทราบ[^\n]*|คำแนะนำ[^\n]*|สาเหตุ[^\n]*)\s*\n([\s\S]*)$/)
+            return headingMatch ? <section key={`paragraph-${index}`} className="content-callout-block"><h2>{headingMatch[1]}</h2><p>{headingMatch[2]}</p></section> : <p key={`paragraph-${index}`}>{paragraph}</p>
+          })}
+        </div>
+
+        {steps.length > 0 && <section id="article-steps" className="steps-box"><div className="steps-box-head"><div><span className="eyebrow">STEP-BY-STEP WORKFLOW</span><h2>ขั้นตอนการแก้ไขปัญหาอย่างเป็นลำดับ</h2></div><span className="steps-count-pill">{steps.length} ขั้นตอน</span></div><ol>{steps.map((step, index) => <li key={`step-${index}`}>{typeof step === 'string' ? step.replace(/^\s*\d+[.)]\s*/, '') : step?.text || JSON.stringify(step)}</li>)}</ol></section>}
+
+        {article.pdfFile && <section id="article-pdf" className="pdf-banner"><div className="pdf-banner-info"><span className="pdf-emblem" aria-hidden="true">PDF</span><div><b>คู่มือฉบับสมบูรณ์พร้อมพิมพ์ (PDF A4)</b><p>เปิดอ่านในเบราว์เซอร์หรือดาวน์โหลดเก็บไว้ในเครื่องเพื่อเปิดดูแบบออฟไลน์ได้ทันที</p></div></div><div><a className="print-button" href={assetUrl(article.pdfFile)} target="_blank" rel="noreferrer">เปิดอ่านไฟล์ PDF</a><a className="download-button" href={assetUrl(article.pdfFile)} download>⬇ ดาวน์โหลดไฟล์ PDF</a></div></section>}
+
+        {Array.isArray(article.keywords) && article.keywords.length > 0 && <div className="article-keywords" aria-label="คำสำคัญของบทความ"><b>คำค้นและหัวข้อที่เกี่ยวข้อง:</b><div className="keyword-list">{article.keywords.map((keyword) => <Link key={keyword} className="keyword-tag" to={`/search?q=${encodeURIComponent(keyword)}`}>#{keyword}</Link>)}</div></div>}
+
+        <div id="article-feedback" className="feedback-box"><b>คู่มือนี้ช่วยให้คุณแก้ปัญหาได้สำเร็จหรือไม่?</b><p className="feedback-count">มีผู้ประเมิน {Number(feedbackCount || 0)} คน · มีประโยชน์ {Number(helpfulCount || 0)} คน ({feedbackCount ? Math.round(helpfulCount * 100 / feedbackCount) : 0}%)</p>{voteValue === 'yes' || voteValue === 'no' || storedVote ? <p className="thanks">✓ ขอบคุณสำหรับความคิดเห็นของคุณ เพื่อนำไปพัฒนาคู่มือต่อไป</p> : voteValue ? <p className="feedback-error">{voteValue}</p> : <div><button disabled={sending} onClick={() => sendVote(true)}>👍 มีประโยชน์ ทำตามได้จริง</button><button disabled={sending} onClick={() => sendVote(false)}>👎 ยังไม่ช่วยแก้ปัญหา</button></div>}</div>
+
+        <ContactCard contact={contact.data} title="คู่มือนี้ยังไม่ช่วยแก้ปัญหา? ติดต่อเจ้าหน้าที่ศูนย์ ICT" className="article-contact-card"/>
+
+        <section className="related-section"><div className="section-heading"><div><span className="eyebrow">RELATED GUIDES</span><h2>บทความที่เกี่ยวข้องในหมวดหมู่นี้</h2></div><Link className="text-link" to={`/articles?category=${article.categoryId}`}>ดูทั้งหมดในหมวดนี้ <b>→</b></Link></div>{relatedArticles.length ? <div className="article-grid">{relatedArticles.map((item) => <ArticleCard key={item.articleId} article={item}/>)}</div> : <Link to={`/articles?category=${article.categoryId}`}>ดูบทความเพิ่มเติมในหมวดหมู่นี้ →</Link>}</section>
+      </article>
+
+      <aside className="detail-aside">
+        <div className="aside-card aside-toc-card">
+          <span className="eyebrow">QUICK NAVIGATION</span>
+          <b>สารบัญคู่มือนี้</b>
+          <nav className="aside-toc-links" aria-label="สารบัญภายในบทความ">
+            <a href="#article-intro"><span>01</span> รายละเอียดและคำอธิบาย</a>
+            {steps.length > 0 && <a href="#article-steps"><span>02</span> ขั้นตอนการปฏิบัติ ({steps.length} ข้อ)</a>}
+            {article.pdfFile && <a href="#article-pdf"><span>03</span> ดาวน์โหลดเอกสารคู่มือ PDF</a>}
+            <a href="#article-feedback"><span>{article.pdfFile ? '04' : '03'}</span> ประเมินความพึงพอใจคู่มือ</a>
+          </nav>
+        </div>
+
+        <div className="aside-card">
+          <span className="eyebrow">DOCUMENT INFO</span>
+          <b>ข้อมูลคู่มือมาตรฐาน</b>
+          <p>หมวดหมู่ <Link to={`/articles?category=${article.categoryId}`}>{article.category?.categoryName}</Link></p>
+          <p>เผยแพร่เมื่อ <span>{dateLabel(article.publishedAt || article.createdAt)}</span></p>
+          <p>แก้ไขล่าสุด <span>{dateLabel(article.updatedAt)}</span></p>
+          <p>จำนวนขั้นตอน <span>{steps.length} ขั้นตอน</span></p>
+          <p>จำนวนเข้าชม <span>{Number(article.viewCount || 0).toLocaleString('th-TH')} ครั้ง</span></p>
+          {article.pdfFile && <a className="aside-pdf-cta" href={assetUrl(article.pdfFile)} download>⬇ ดาวน์โหลดคู่มือ PDF (A4)</a>}
+        </div>
+
+        {relatedArticles.length > 0 && <div className="aside-card aside-related-card">
+          <span className="eyebrow">MORE IN THIS TOPIC</span>
+          <b>คู่มืออื่นในหมวดเดียวกัน</b>
+          <div className="aside-related-list">
+            {relatedArticles.map((item, idx) => <Link key={item.articleId} to={`/articles/${item.articleId}`} className="aside-related-item">
+              <span className="aside-related-num">{idx + 1}</span>
+              <div>
+                <b>{item.title}</b>
+                <small>◷ เข้าชม {Number(item.viewCount || 0).toLocaleString('th-TH')} ครั้ง</small>
+              </div>
+            </Link>)}
+          </div>
+        </div>}
+
+        <div className="aside-card aside-help-card">
+          <span className="eyebrow">NEED ASSISTANCE?</span>
+          <b>ต้องการความช่วยเหลือเพิ่มเติม?</b>
+          <p className="aside-help-copy">หากทำตามขั้นตอนแล้วยังพบปัญหา สามารถติดต่อเจ้าหน้าที่ศูนย์ ICT เทศบาลนครขอนแก่นได้ในเวลาทำการ</p>
+          {contact.data?.phone && <div className="aside-help-phone"><span>โทรศัพท์</span><b>{contact.data.phone}</b></div>}
+          {quickHelpHref ? <a className="aside-help-btn" href={quickHelpHref}>ติดต่อเจ้าหน้าที่ศูนย์ ICT →</a> : <Link className="aside-help-btn" to="/articles">ดูหมวดหมู่คู่มือทั้งหมด →</Link>}
+        </div>
+      </aside>
+    </div>
     {lightbox && <div className="lightbox" role="dialog" aria-modal="true" aria-label="ภาพประกอบขนาดใหญ่" onClick={() => setLightbox(false)}><button onClick={() => setLightbox(false)} aria-label="ปิดภาพ">×</button><img src={assetUrl(article.image)} alt={`ภาพประกอบ ${article.title}`}/></div>}
   </main>
 }
