@@ -16,17 +16,19 @@ const excerpt = (value = '') => {
 }
 
 function Header() {
-  const [term, setTerm] = useState('')
   let isAdmin = false
   try { isAdmin = Boolean(window.sessionStorage.getItem('ict-admin-token')) } catch { /* Storage can be disabled by browser policy. */ }
-  const navigate = useNavigate()
-  const submit = (event) => { event.preventDefault(); navigate(`/search?q=${encodeURIComponent(term.trim())}`) }
   return <>
     <div className="utility"><div className="shell utility-inner"><span>ศูนย์พัฒนาทักษะและการเรียนรู้ ICT เทศบาลนครขอนแก่น (KKICT)</span><span>บริการคลังความรู้ดิจิทัล · <a href="https://www.kkict.net/" target="_blank" rel="noreferrer">เว็บไซต์หลัก kkict.net ↗</a></span></div></div>
     <header className="site-header"><div className="shell nav-row">
       <Link className="brand" to="/"><span className="brand-mark">ICT</span><span><b>คลังความรู้ ICT</b><small>ศูนย์พัฒนาทักษะและการเรียนรู้ ICT ขอนแก่น</small></span></Link>
-      <nav><NavLink to="/" end>หน้าแรก</NavLink><NavLink to="/articles">คลังความรู้</NavLink><NavLink to="/search">ค้นหา</NavLink><Link to={isAdmin ? '/admin' : '/admin/login'}>{isAdmin ? 'ไปที่ระบบจัดการ' : 'เข้าสู่ระบบเจ้าหน้าที่'}</Link></nav>
-      <form className="nav-search" onSubmit={submit}><input aria-label="ค้นหาคู่มือ" value={term} onChange={(e) => setTerm(e.target.value)} placeholder="ค้นหาคู่มือ..."/><button aria-label="ค้นหา">⌕</button></form>
+      <nav><NavLink to="/" end>หน้าแรก</NavLink><NavLink to="/articles">คลังความรู้</NavLink></nav>
+      <Link className="nav-staff-btn" to={isAdmin ? '/admin' : '/admin/login'}>
+        <span className="nav-staff-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </span>
+        <span>{isAdmin ? 'ไปที่ระบบจัดการ' : 'เข้าสู่ระบบเจ้าหน้าที่'}</span>
+      </Link>
     </div></header>
   </>
 }
