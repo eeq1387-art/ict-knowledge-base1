@@ -227,7 +227,6 @@ function ArticlePage() {
           <span>◷ เข้าชม {Number(article.viewCount || 0).toLocaleString('th-TH')} ครั้ง</span>
           <span>✎ อัปเดตล่าสุด {dateLabel(article.updatedAt)}</span>
           {steps.length > 0 && <span>✓ {steps.length} ขั้นตอนปฏิบัติ</span>}
-          {article.pdfFile && <span>📄 มีไฟล์คู่มือ PDF</span>}
         </div>
         <div className="article-tools">
           <button className="print-button" onClick={copyLink}>{copied ? '✓ คัดลอกลิงก์แล้ว' : '⧉ คัดลอกลิงก์คู่มือ'}</button>
@@ -236,15 +235,15 @@ function ArticlePage() {
           {copyError && <span role="status">{copyError}</span>}
         </div>
       </div>
-      <div className="article-hero-badge" aria-hidden="true">
-        <div className="hero-badge-inner">
-          <span className="hero-badge-icon">ICT</span>
-          <b>เอกสารคู่มือมาตรฐาน</b>
-          <small>ศูนย์พัฒนาทักษะและการเรียนรู้ ICT เทศบาลนครขอนแก่น</small>
-          <div className="hero-badge-pills">
-            <span>{steps.length || 4} ขั้นตอนชัดเจน</span>
-            <span>พร้อมใช้งาน 24 ชม.</span>
+      <div className="article-hero-art" aria-hidden="true">
+        <div className="hero-art-glow"/>
+        <div className="hero-art-sheet">
+          <div className="hero-art-dots"><i/><i/><i/><span>KKICT GUIDE</span></div>
+          <div className="hero-art-body">
+            <span className="hero-art-emblem">{categoryIcons[(Number(article.categoryId || 1) - 1) % categoryIcons.length] || '▣'}</span>
+            <div className="hero-art-bars"><i/><i/><i/></div>
           </div>
+          <span className="hero-art-check">✓</span>
         </div>
       </div>
     </header>
@@ -275,49 +274,51 @@ function ArticlePage() {
       </article>
 
       <aside className="detail-aside">
-        <div className="aside-card aside-toc-card">
-          <span className="eyebrow">QUICK NAVIGATION</span>
-          <b>สารบัญคู่มือนี้</b>
-          <nav className="aside-toc-links" aria-label="สารบัญภายในบทความ">
-            <a href="#article-intro"><span>01</span> รายละเอียดและคำอธิบาย</a>
-            {steps.length > 0 && <a href="#article-steps"><span>02</span> ขั้นตอนการปฏิบัติ ({steps.length} ข้อ)</a>}
-            {article.pdfFile && <a href="#article-pdf"><span>03</span> ดาวน์โหลดเอกสารคู่มือ PDF</a>}
-            <a href="#article-feedback"><span>{article.pdfFile ? '04' : '03'}</span> ประเมินความพึงพอใจคู่มือ</a>
-          </nav>
-        </div>
+        <div className="aside-card aside-master-card">
+          <div className="aside-master-head">
+            <span className="aside-master-icon" aria-hidden="true">{categoryIcons[(Number(article.categoryId || 1) - 1) % categoryIcons.length] || '▣'}</span>
+            <div>
+              <span className="eyebrow">ข้อมูลคู่มือ</span>
+              <b>รายละเอียดบทความ</b>
+            </div>
+          </div>
 
-        <div className="aside-card">
-          <span className="eyebrow">DOCUMENT INFO</span>
-          <b>ข้อมูลคู่มือมาตรฐาน</b>
-          <p>หมวดหมู่ <Link to={`/articles?category=${article.categoryId}`}>{article.category?.categoryName}</Link></p>
-          <p>เผยแพร่เมื่อ <span>{dateLabel(article.publishedAt || article.createdAt)}</span></p>
-          <p>แก้ไขล่าสุด <span>{dateLabel(article.updatedAt)}</span></p>
-          <p>จำนวนขั้นตอน <span>{steps.length} ขั้นตอน</span></p>
-          <p>จำนวนเข้าชม <span>{Number(article.viewCount || 0).toLocaleString('th-TH')} ครั้ง</span></p>
+          <div className="aside-stat-tiles">
+            <div className="aside-tile">
+              <small>จำนวนขั้นตอน</small>
+              <b>{steps.length} ขั้นตอน</b>
+            </div>
+            <div className="aside-tile is-gold">
+              <small>จำนวนเข้าชม</small>
+              <b>{Number(article.viewCount || 0).toLocaleString('th-TH')} ครั้ง</b>
+            </div>
+          </div>
+
+          <div className="aside-meta-list">
+            <p>หมวดหมู่ <Link to={`/articles?category=${article.categoryId}`}>{article.category?.categoryName}</Link></p>
+            <p>เผยแพร่เมื่อ <span>{dateLabel(article.publishedAt || article.createdAt)}</span></p>
+            <p>แก้ไขล่าสุด <span>{dateLabel(article.updatedAt)}</span></p>
+          </div>
+
+          <nav className="aside-timeline-nav" aria-label="สารบัญภายในบทความ">
+            <span className="aside-nav-heading">สารบัญในหน้านี้</span>
+            <a href="#article-intro"><i/><span>รายละเอียดและคำอธิบาย</span></a>
+            {steps.length > 0 && <a href="#article-steps"><i/><span>ขั้นตอนการปฏิบัติ ({steps.length})</span></a>}
+            {article.pdfFile && <a href="#article-pdf"><i/><span>เอกสารคู่มือ PDF</span></a>}
+            <a href="#article-feedback"><i/><span>ประเมินความพึงพอใจ</span></a>
+          </nav>
+
           {article.pdfFile && <a className="aside-pdf-cta" href={assetUrl(article.pdfFile)} download>⬇ ดาวน์โหลดคู่มือ PDF (A4)</a>}
         </div>
 
-        {relatedArticles.length > 0 && <div className="aside-card aside-related-card">
-          <span className="eyebrow">MORE IN THIS TOPIC</span>
-          <b>คู่มืออื่นในหมวดเดียวกัน</b>
-          <div className="aside-related-list">
-            {relatedArticles.map((item, idx) => <Link key={item.articleId} to={`/articles/${item.articleId}`} className="aside-related-item">
-              <span className="aside-related-num">{idx + 1}</span>
-              <div>
-                <b>{item.title}</b>
-                <small>◷ เข้าชม {Number(item.viewCount || 0).toLocaleString('th-TH')} ครั้ง</small>
-              </div>
-            </Link>)}
+        {quickHelpHref && <a className="aside-support-pill" href={quickHelpHref}>
+          <span className="support-pill-icon" aria-hidden="true">☎</span>
+          <div>
+            <b>ติดปัญหา สอบถามเจ้าหน้าที่</b>
+            <small>{contact.data?.phone ? `โทร ${contact.data.phone} · ศูนย์ ICT ขอนแก่น` : 'ศูนย์พัฒนาทักษะและการเรียนรู้ ICT ขอนแก่น'}</small>
           </div>
-        </div>}
-
-        <div className="aside-card aside-help-card">
-          <span className="eyebrow">NEED ASSISTANCE?</span>
-          <b>ต้องการความช่วยเหลือเพิ่มเติม?</b>
-          <p className="aside-help-copy">หากทำตามขั้นตอนแล้วยังพบปัญหา สามารถติดต่อเจ้าหน้าที่ศูนย์ ICT เทศบาลนครขอนแก่นได้ในเวลาทำการ</p>
-          {contact.data?.phone && <div className="aside-help-phone"><span>โทรศัพท์</span><b>{contact.data.phone}</b></div>}
-          {quickHelpHref ? <a className="aside-help-btn" href={quickHelpHref}>ติดต่อเจ้าหน้าที่ศูนย์ ICT →</a> : <Link className="aside-help-btn" to="/articles">ดูหมวดหมู่คู่มือทั้งหมด →</Link>}
-        </div>
+          <span className="support-pill-arrow" aria-hidden="true">→</span>
+        </a>}
       </aside>
     </div>
     {lightbox && <div className="lightbox" role="dialog" aria-modal="true" aria-label="ภาพประกอบขนาดใหญ่" onClick={() => setLightbox(false)}><button onClick={() => setLightbox(false)} aria-label="ปิดภาพ">×</button><img src={assetUrl(article.image)} alt={`ภาพประกอบ ${article.title}`}/></div>}
