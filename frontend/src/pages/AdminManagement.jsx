@@ -276,6 +276,8 @@ export function ArticleList() {
   const [status, setStatus] = useState('ALL')
   const [categoryId, setCategoryId] = useState(() => new URLSearchParams(location.search).get('category') || '')
   const [query, setQuery] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(8)
   const [refresh, setRefresh] = useState(0)
   const categoriesData = useAdminData('/admin/categories')
   const filterParams = new URLSearchParams()
@@ -287,6 +289,13 @@ export function ArticleList() {
   const [notice, setNotice] = useState(location.state?.notice || '')
   const [actionError, setActionError] = useState('')
   useDocumentTitle('จัดการบทความ · ระบบเจ้าหน้าที่')
+
+  const allArticles = articles || []
+  const totalCount = allArticles.length
+  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
+  const currentPage = Math.min(page, pageCount)
+  const startIndex = (currentPage - 1) * pageSize
+  const pagedArticles = allArticles.slice(startIndex, startIndex + pageSize)
 
   async function setArticleStatus(article, nextStatus) {
     setActionError('')
@@ -301,8 +310,21 @@ export function ArticleList() {
   }
 
   return <section className="admin-content"><div className="admin-title-row"><div><span className="eyebrow">CONTENT MANAGEMENT</span><h1>จัดการบทความ</h1><p className="admin-muted">ดูแลบทความ คู่มือ และสถานะการเผยแพร่</p></div><Link className="admin-primary-link" to="/admin/articles/new">＋ เพิ่มบทความ</Link></div><Alert type="success">{notice}</Alert><Alert>{actionError || error}</Alert>
-    <div className="admin-filter-row"><div className="admin-tabs">{[['ALL', 'ทั้งหมด'], ['PUBLISHED', 'เผยแพร่แล้ว'], ['DRAFT', 'ฉบับร่าง'], ['HIDDEN', 'ซ่อน']].map(([value, label]) => <button key={value} className={status === value ? 'active' : ''} onClick={() => { setStatus(value); setNotice(''); setActionError('') }}>{label}</button>)}</div><span>{articles?.length ?? 0} บทความ</span></div><div className="admin-search-filters"><input aria-label="ค้นหาบทความ" placeholder="ค้นหาชื่อ เนื้อหา หรือคำสำคัญ" value={query} onChange={(event) => setQuery(event.target.value)}/><select aria-label="กรองหมวดหมู่" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="">ทุกหมวดหมู่</option>{(categoriesData.data || []).map((category) => <option key={category.categoryId} value={category.categoryId}>{category.categoryName}</option>)}</select></div>
-    {loading ? <p className="admin-loading">กำลังโหลดบทความ...</p> : !(articles || []).length ? <div className="admin-empty"><b>ไม่พบบทความในรายการนี้</b><p>ปรับตัวกรองหรือเพิ่มบทความใหม่</p><Link to="/admin/articles/new">เพิ่มบทความ →</Link></div> : <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>บทความ</th><th>หมวดหมู่</th><th>สถานะ</th><th>ยอดวิว</th><th>ผลประเมิน</th><th>ไฟล์แนบ</th><th>อัปเดตล่าสุด</th><th>การจัดการ</th></tr></thead><tbody>{(articles || []).map((article) => <tr key={article.articleId}><td><b>{article.title}</b></td><td>{article.category?.categoryName || '—'}</td><td><StatusBadge status={article.status}/></td><td>{Number(article.viewCount || 0).toLocaleString('th-TH')}</td><td>{article.feedbackCount ? `${article.helpfulPercent}% (${article.helpfulCount}/${article.feedbackCount})` : 'ยังไม่มีผลประเมิน'}</td><td><span title={article.image ? 'มีรูปภาพ' : 'ไม่มีรูปภาพ'}>{article.image ? '🖼 รูป' : '—'}</span> · <span title={article.pdfFile ? 'มีไฟล์ PDF' : 'ไม่มีไฟล์ PDF'}>{article.pdfFile ? 'PDF' : '—'}</span></td><td>{dateLabel(article.updatedAt)}</td><td><div className="admin-row-actions article-row-actions"><div className="admin-row-action-group"><Link to={`/articles/${article.articleId}?preview=1`} target="_blank" rel="opener">ดูตัวอย่าง</Link><Link to={`/admin/articles/${article.articleId}/edit`}>แก้ไข</Link></div><div className="admin-row-action-group">{[['PUBLISHED','เผยแพร่'], ['DRAFT','ฉบับร่าง'], ['HIDDEN','ซ่อน']].filter(([nextStatus]) => nextStatus !== article.status).map(([nextStatus, label]) => <button key={nextStatus} className={`status-action status-action-${nextStatus.toLowerCase()}`} onClick={() => setArticleStatus(article, nextStatus)}>{label}</button>)}<button className="danger-action" onClick={() => removeArticle(article)}>ลบ</button></div></div></td></tr>)}</tbody></table></div>}
+    <div className="admin-filter-row"><div className="admin-tabs">{[['ALL', 'ทั้งหมด'], ['PUBLISHED', 'เผยแพร่แล้ว'], ['DRAFT', 'ฉบับร่าง'], ['HIDDEN', 'ซ่อน']].map(([value, label]) => <button key={value} className={status === value ? 'active' : ''} onClick={() => { setStatus(value); setPage(1); setNotice(''); setActionError('') }}>{label}</button>)}</div><span>{totalCount} บทความ</span></div><div className="admin-search-filters"><input aria-label="ค้นหาบทความ" placeholder="ค้นหาชื่อ เนื้อหา หรือคำสำคัญ" value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }}/><select aria-label="กรองหมวดหมู่" value={categoryId} onChange={(event) => { setCategoryId(event.target.value); setPage(1) }}><option value="">ทุกหมวดหมู่</option>{(categoriesData.data || []).map((category) => <option key={category.categoryId} value={category.categoryId}>{category.categoryName}</option>)}</select></div>
+    {loading ? <p className="admin-loading">กำลังโหลดบทความ...</p> : !totalCount ? <div className="admin-empty"><b>ไม่พบบทความในรายการนี้</b><p>ปรับตัวกรองหรือเพิ่มบทความใหม่</p><Link to="/admin/articles/new">เพิ่มบทความ →</Link></div> : <>
+      <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>บทความ</th><th>หมวดหมู่</th><th>สถานะ</th><th>ยอดวิว</th><th>ผลประเมิน</th><th>ไฟล์แนบ</th><th>อัปเดตล่าสุด</th><th>การจัดการ</th></tr></thead><tbody>{pagedArticles.map((article) => <tr key={article.articleId}><td><b>{article.title}</b></td><td>{article.category?.categoryName || '—'}</td><td><StatusBadge status={article.status}/></td><td>{Number(article.viewCount || 0).toLocaleString('th-TH')}</td><td>{article.feedbackCount ? `${article.helpfulPercent}% (${article.helpfulCount}/${article.feedbackCount})` : 'ยังไม่มีผลประเมิน'}</td><td><span title={article.image ? 'มีรูปภาพ' : 'ไม่มีรูปภาพ'}>{article.image ? '🖼 รูป' : '—'}</span> · <span title={article.pdfFile ? 'มีไฟล์ PDF' : 'ไม่มีไฟล์ PDF'}>{article.pdfFile ? 'PDF' : '—'}</span></td><td>{dateLabel(article.updatedAt)}</td><td><div className="admin-row-actions article-row-actions"><div className="admin-row-action-group"><Link to={`/articles/${article.articleId}?preview=1`} target="_blank" rel="opener">ดูตัวอย่าง</Link><Link to={`/admin/articles/${article.articleId}/edit`}>แก้ไข</Link></div><div className="admin-row-action-group">{[['PUBLISHED','เผยแพร่'], ['DRAFT','ฉบับร่าง'], ['HIDDEN','ซ่อน']].filter(([nextStatus]) => nextStatus !== article.status).map(([nextStatus, label]) => <button key={nextStatus} className={`status-action status-action-${nextStatus.toLowerCase()}`} onClick={() => setArticleStatus(article, nextStatus)}>{label}</button>)}<button className="danger-action" onClick={() => removeArticle(article)}>ลบ</button></div></div></td></tr>)}</tbody></table></div>
+      <div className="admin-pagination" aria-label="การแบ่งหน้ารายการบทความ">
+        <div className="admin-page-summary">
+          <span>แสดง <b>{startIndex + 1}–{Math.min(startIndex + pageSize, totalCount)}</b> จากทั้งหมด <b>{totalCount}</b> บทความ</span>
+          <label className="admin-pagesize-picker">แสดงต่อหน้า <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1) }}><option value={8}>8 รายการ</option><option value={15}>15 รายการ</option><option value={30}>30 รายการ</option></select></label>
+        </div>
+        {pageCount > 1 && <div className="admin-page-controls">
+          <button type="button" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>← ก่อนหน้า</button>
+          <div className="admin-page-numbers">{Array.from({ length: pageCount }, (_, idx) => idx + 1).map((num) => <button key={num} type="button" className={num === currentPage ? 'active' : ''} onClick={() => setPage(num)}>{num}</button>)}</div>
+          <button type="button" disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)}>ถัดไป →</button>
+        </div>}
+      </div>
+    </>}
   </section>
 }
 
