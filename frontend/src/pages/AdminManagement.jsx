@@ -397,6 +397,38 @@ export function CategoryManager() {
 }
 
 export default function AdminManagement({ admin, onLogout }) {
-  return <main className="admin-page"><header className="admin-topbar"><Link className="admin-brand" to="/admin"><span className="brand-mark">ICT</span><span><b>คลังความรู้ ICT</b><small>พื้นที่เจ้าหน้าที่</small></span></Link><nav className="admin-nav"><NavLink to="/admin" end>ภาพรวม</NavLink><NavLink to="/admin/articles">บทความ</NavLink><NavLink to="/admin/categories">หมวดหมู่</NavLink><NavLink to="/admin/settings">ตั้งค่า</NavLink><Link to="/" target="_blank">หน้าเว็บไซต์</Link></nav><div><span>{admin?.fullname || 'เจ้าหน้าที่'}</span><button onClick={onLogout}>ออกจากระบบ</button></div></header><Outlet/></main>
+  const displayName = admin?.fullname || 'เจ้าหน้าที่'
+  const avatarText = displayName.trim().slice(0, 1) || 'จ'
+  return <main className="admin-page">
+    <header className="admin-topbar admin-sidebar">
+      <Link className="admin-brand" to="/admin">
+        <span className="brand-mark">ICT</span>
+        <span><b>คลังความรู้ ICT</b><small>พื้นที่เจ้าหน้าที่</small></span>
+      </Link>
+      <div className="admin-nav-section">
+        <span className="admin-nav-label">เมนูจัดการระบบ</span>
+        <nav className="admin-nav" aria-label="เมนูพื้นที่เจ้าหน้าที่">
+          <NavLink to="/admin" end><span className="admin-nav-icon" aria-hidden="true">▤</span><span>ภาพรวม</span></NavLink>
+          <NavLink to="/admin/articles"><span className="admin-nav-icon" aria-hidden="true">✎</span><span>บทความ</span></NavLink>
+          <NavLink to="/admin/categories"><span className="admin-nav-icon" aria-hidden="true">▣</span><span>หมวดหมู่</span></NavLink>
+          <NavLink to="/admin/settings"><span className="admin-nav-icon" aria-hidden="true">⚙</span><span>ตั้งค่า</span></NavLink>
+          <Link to="/" target="_blank" className="admin-ext-link"><span className="admin-nav-icon" aria-hidden="true">↗</span><span>หน้าเว็บไซต์</span></Link>
+        </nav>
+      </div>
+      <div className="admin-user-box">
+        <div className="admin-user-info">
+          <span className="admin-avatar" aria-hidden="true">{avatarText}</span>
+          <div>
+            <b>{displayName}</b>
+            <small>เจ้าหน้าที่ดูแลระบบ</small>
+          </div>
+        </div>
+        <button type="button" onClick={onLogout}>ออกจากระบบ</button>
+      </div>
+    </header>
+    <div className="admin-workspace">
+      <Outlet/>
+    </div>
+  </main>
 }
 
