@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, NavLink, Outlet, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, NavLink, Outlet, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, assetUrl, feedbackKey, useDocumentTitle } from './services/api'
 import { AdminLoginPage, AdminPage } from './pages/Admin'
 import { AdminHome, ArticleEditor, ArticleList, CategoryManager, ContactSettings } from './pages/AdminManagement'
@@ -104,6 +104,7 @@ function Footer() {
   const phoneHref = safePhoneHref(phone)
   const emailHref = safeEmailHref(email)
   const categoryList = Array.isArray(categories.data) && categories.data.length > 0 ? categories.data.slice(0, 6) : fallbackFooterCategories
+  const scrollToTop = () => window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
 
   return <footer className="site-footer">
     <div className="footer-highlights-wrap">
@@ -150,7 +151,7 @@ function Footer() {
     <div className="footer-main">
       <div className="shell footer-grid">
         <div className="footer-brand-col">
-          <Link className="footer-brand-head" to="/">
+          <Link className="footer-brand-head" to="/" onClick={scrollToTop}>
             <span className="footer-logo-mark">ICT</span>
             <div>
               <b>คลังความรู้และคู่มือบริการไอที (KKICT)</b>
@@ -169,12 +170,12 @@ function Footer() {
         <nav className="footer-links-col" aria-label="เกี่ยวกับเราและเมนูหลัก">
           <h3>เกี่ยวกับเรา</h3>
           <ul>
-            <li><Link to="/">หน้าแรกคลังความรู้</Link></li>
-            <li><Link to="/articles">คลังความรู้และคู่มือทั้งหมด</Link></li>
-            <li><Link to="/search">ค้นหาวิธีแก้ไขปัญหาไอที</Link></li>
-            <li><Link to="/articles?sort=popular">คู่มือยอดนิยมประจำศูนย์</Link></li>
+            <li><Link to="/" onClick={scrollToTop}>หน้าแรกคลังความรู้</Link></li>
+            <li><Link to="/articles" onClick={scrollToTop}>คลังความรู้และคู่มือทั้งหมด</Link></li>
+            <li><Link to="/search" onClick={scrollToTop}>ค้นหาวิธีแก้ไขปัญหาไอที</Link></li>
+            <li><Link to="/articles?sort=popular" onClick={scrollToTop}>คู่มือยอดนิยมประจำศูนย์</Link></li>
             <li><a href="https://www.kkict.net/" target="_blank" rel="noreferrer">เว็บไซต์หลัก kkict.net ↗</a></li>
-            <li><Link to="/admin/login">เข้าสู่ระบบเจ้าหน้าที่</Link></li>
+            <li><Link to="/admin/login" onClick={scrollToTop}>เข้าสู่ระบบเจ้าหน้าที่</Link></li>
           </ul>
         </nav>
 
@@ -183,7 +184,7 @@ function Footer() {
           <ul>
             {categoryList.map((cat) => (
               <li key={cat.categoryId}>
-                <Link to={`/articles?category=${cat.categoryId}`}>{cat.categoryName}</Link>
+                <Link to={`/articles?category=${cat.categoryId}`} onClick={scrollToTop}>{cat.categoryName}</Link>
               </li>
             ))}
           </ul>
@@ -255,11 +256,11 @@ function Footer() {
           <div className="footer-bottom-links">
             <a href="https://www.kkict.net/" target="_blank" rel="noreferrer">เว็บไซต์หลัก kkict.net</a>
             <span aria-hidden="true">|</span>
-            <Link to="/articles">คลังความรู้ทั้งหมด</Link>
+            <Link to="/articles" onClick={scrollToTop}>คลังความรู้ทั้งหมด</Link>
             <span aria-hidden="true">|</span>
-            <Link to="/search">ค้นหาคู่มือ</Link>
+            <Link to="/search" onClick={scrollToTop}>ค้นหาคู่มือ</Link>
             <span aria-hidden="true">|</span>
-            <Link to="/admin/login">สำหรับเจ้าหน้าที่</Link>
+            <Link to="/admin/login" onClick={scrollToTop}>สำหรับเจ้าหน้าที่</Link>
           </div>
         </div>
       </div>
@@ -507,28 +508,39 @@ function ArticlePage() {
   </main>
 }
 
+function ScrollToTop() {
+  const { pathname, search, hash } = useLocation()
+  useEffect(() => {
+    if (!hash) window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
+  }, [pathname, search, hash])
+  return null
+}
+
 function PublicLayout() { return <><Header/><Outlet/><Footer/></> }
 
 function App() {
-  return <Routes>
-    <Route path="/admin/login" element={<AdminLoginPage/>}/>
-    <Route path="/admin" element={<AdminPage/>}>
-      <Route index element={<AdminHome/>}/>
-      <Route path="articles" element={<ArticleList/>}/>
-      <Route path="articles/new" element={<ArticleEditor/>}/>
-      <Route path="articles/:id/edit" element={<ArticleEditor/>}/>
-      <Route path="categories" element={<CategoryManager/>}/>
-      <Route path="settings" element={<ContactSettings/>}/>
-      <Route path="*" element={<AdminHome/>}/>
-    </Route>
-    <Route element={<PublicLayout/>}>
-      <Route path="/" element={<HomePage/>}/>
-      <Route path="/articles" element={<ArticlesPage/>}/>
-      <Route path="/search" element={<ArticlesPage search/>}/>
-      <Route path="/articles/:id" element={<ArticlePage/>}/>
-      <Route path="*" element={<NotFoundPage/>}/>
-    </Route>
-  </Routes>
+  return <>
+    <ScrollToTop/>
+    <Routes>
+      <Route path="/admin/login" element={<AdminLoginPage/>}/>
+      <Route path="/admin" element={<AdminPage/>}>
+        <Route index element={<AdminHome/>}/>
+        <Route path="articles" element={<ArticleList/>}/>
+        <Route path="articles/new" element={<ArticleEditor/>}/>
+        <Route path="articles/:id/edit" element={<ArticleEditor/>}/>
+        <Route path="categories" element={<CategoryManager/>}/>
+        <Route path="settings" element={<ContactSettings/>}/>
+        <Route path="*" element={<AdminHome/>}/>
+      </Route>
+      <Route element={<PublicLayout/>}>
+        <Route path="/" element={<HomePage/>}/>
+        <Route path="/articles" element={<ArticlesPage/>}/>
+        <Route path="/search" element={<ArticlesPage search/>}/>
+        <Route path="/articles/:id" element={<ArticlePage/>}/>
+        <Route path="*" element={<NotFoundPage/>}/>
+      </Route>
+    </Routes>
+  </>
 }
 
 export default App
