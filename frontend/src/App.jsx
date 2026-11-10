@@ -160,12 +160,9 @@ function Footer() {
           <p className="footer-brand-desc">
             ศูนย์พัฒนาทักษะและการเรียนรู้ ICT เทศบาลนครขอนแก่น แหล่งรวบรวมคู่มือมาตรฐาน ขั้นตอนการตั้งค่า และวิธีแก้ไขปัญหาด้านเทคโนโลยีสารสนเทศ คอมพิวเตอร์ เครือข่าย และอุปกรณ์สำนักงานด้วยตนเอง สำหรับบุคลากรและประชาชน
           </p>
-          <a className="footer-verified-badge" href="https://www.kkict.net/" target="_blank" rel="noreferrer">
-            <span className="verified-badge-icon" aria-hidden="true">✓</span>
-            <div>
-              <b>บริการสาธารณะดิจิทัล · เทศบาลนครขอนแก่น</b>
-              <small>เว็บไซต์หลักศูนย์ ICT ขอนแก่น · www.kkict.net ↗</small>
-            </div>
+          <a className="footer-official-link" href="https://www.kkict.net/" target="_blank" rel="noreferrer">
+            <span className="official-dot" aria-hidden="true"/>
+            <span>ศูนย์พัฒนาทักษะและการเรียนรู้ ICT ขอนแก่น · <b>www.kkict.net ↗</b></span>
           </a>
         </div>
 
@@ -197,95 +194,55 @@ function Footer() {
           <ul className="footer-contact-list">
             {location && (
               <li>
-                <div className="contact-item-icon is-pin" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
-                    <path d="M12 21.5s-7-5.68-7-11.5a7 7 0 1 1 14 0c0 5.82-7 11.5-7 11.5Z" fill="currentColor" fillOpacity="0.18" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-                    <circle cx="12" cy="10" r="2.8" fill="currentColor"/>
-                  </svg>
-                </div>
-                <div className="footer-contact-body">
-                  <small>สถานที่ตั้ง</small>
-                  <span>{location}</span>
-                </div>
+                <svg className="contact-inline-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                <span>{location}</span>
               </li>
             )}
             {phone && (
               <li>
-                <div className="contact-item-icon is-phone" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
-                    <path d="M21 16.42v2.8a1.9 1.9 0 0 1-2.07 1.9 18.8 18.8 0 0 1-8.2-2.92 18.5 18.5 0 0 1-5.7-5.7A18.8 18.8 0 0 1 2.1 4.27 1.9 1.9 0 0 1 4 2.2h2.8a1.9 1.9 0 0 1 1.9 1.63c.12.91.34 1.8.66 2.67a1.9 1.9 0 0 1-.43 2L7.72 9.7a15.2 15.2 0 0 0 5.7 5.7l1.2-1.2a1.9 1.9 0 0 1 2-.43c.87.32 1.76.54 2.67.66A1.9 1.9 0 0 1 21 16.42Z" fill="currentColor" fillOpacity="0.18" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M14.5 3.5a6 6 0 0 1 5 5M14.5 7a2.5 2.5 0 0 1 2 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                  </svg>
-                </div>
-                <div className="footer-contact-body">
-                  <small>โทรศัพท์สายตรง</small>
-                  {phoneHref ? <a href={phoneHref}>{phone}</a> : <span>{phone}</span>}
-                </div>
+                <svg className="contact-inline-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.58 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                <span>โทรศัพท์: {phoneHref ? <a href={phoneHref}>{phone}</a> : phone}</span>
               </li>
             )}
             {email && (
               <li>
-                <div className="contact-item-icon is-mail" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
-                    <rect x="2.5" y="4.5" width="19" height="15" rx="3" fill="currentColor" fillOpacity="0.18" stroke="currentColor" strokeWidth="1.85"/>
-                    <path d="m3.5 6.5 7.42 5.2a1.9 1.9 0 0 0 2.16 0L20.5 6.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <div className="footer-contact-body">
-                  <small>อีเมลติดต่อ</small>
-                  {emailHref ? <a href={emailHref}>{email}</a> : <span>{email}</span>}
-                </div>
+                <svg className="contact-inline-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2.5"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                <span>อีเมล: {emailHref ? <a href={emailHref}>{email}</a> : email}</span>
               </li>
             )}
             {(lineId || lineUrl) && (
               <li>
-                <div className="contact-item-icon is-line" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="21" height="21" fill="none">
-                    <path d="M12 3C6.48 3 2 6.58 2 11c0 3.96 3.52 7.27 8.33 7.89.32.07.76.22.87.5.1.26.07.66.03.92l-.14.85c-.04.25-.2 1 .88.54 1.08-.45 5.83-3.43 7.96-5.88C21.4 14.25 22 12.7 22 11c0-4.42-4.48-8-10-8Z" fill="currentColor" fillOpacity="0.22" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round"/>
-                    <text x="12" y="12.7" textAnchor="middle" fill="currentColor" fontSize="5.4" fontWeight="800" fontFamily="sans-serif" letterSpacing="0.3">LINE</text>
-                  </svg>
-                </div>
-                <div className="footer-contact-body">
-                  <small>LINE Official</small>
-                  {lineUrl ? <a href={lineUrl} target="_blank" rel="noreferrer">{lineId || 'เปิด LINE'}</a> : <span>{lineId}</span>}
-                </div>
+                <svg className="contact-inline-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                <span>LINE: {lineUrl ? <a href={lineUrl} target="_blank" rel="noreferrer">{lineId || 'เปิด LINE'}</a> : lineId}</span>
               </li>
             )}
             {hours && (
               <li>
-                <div className="contact-item-icon is-clock" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
-                    <circle cx="12" cy="12" r="9" fill="currentColor" fillOpacity="0.18" stroke="currentColor" strokeWidth="1.85"/>
-                    <path d="M12 7.2V12l3.4 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <div className="footer-contact-body">
-                  <small>เวลาทำการ</small>
-                  <span>{hours}</span>
-                </div>
+                <svg className="contact-inline-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><polyline points="12 6.5 12 12 16 14"/></svg>
+                <span>เวลาทำการ: {hours}</span>
               </li>
             )}
           </ul>
           {note && <p className="footer-contact-note">{note}</p>}
 
           <div className="footer-social-row" aria-label="ช่องทางติดต่อด่วน">
-            <a href="https://www.kkict.net/" target="_blank" rel="noreferrer" title="เว็บไซต์หลัก www.kkict.net" aria-label="เว็บไซต์หลัก www.kkict.net">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19"/><path d="M12 2.5a14.5 14.5 0 0 1 3.8 9.5 14.5 14.5 0 0 1-3.8 9.5 14.5 14.5 0 0 1-3.8-9.5A14.5 14.5 0 0 1 12 2.5Z"/></svg>
-            </a>
             <a href="https://www.facebook.com/kkict.net" target="_blank" rel="noreferrer" title="Facebook ศูนย์ ICT ขอนแก่น" aria-label="Facebook ศูนย์ ICT ขอนแก่น">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M15.12 5.32H17V2.14A26.11 26.11 0 0 0 14.26 2c-2.72 0-4.58 1.66-4.58 4.7v2.62H6.61v3.56h3.07V22h3.68v-9.12h3.06l.46-3.56h-3.52V6.65c0-1.05.29-1.73 1.76-1.73Z"/></svg>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M15.12 5.32H17V2.14A26.11 26.11 0 0 0 14.26 2c-2.72 0-4.58 1.66-4.58 4.7v2.62H6.61v3.56h3.07V22h3.68v-9.12h3.06l.46-3.56h-3.52V6.65c0-1.05.29-1.73 1.76-1.73Z"/></svg>
             </a>
             <a href={lineUrl || 'https://www.kkict.net/'} target="_blank" rel="noreferrer" title={`LINE: ${lineId}`} aria-label={`LINE ${lineId}`}>
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19.36 10.63c0-4.18-4.19-7.58-9.34-7.58S.68 6.45.68 10.63c0 3.75 3.33 6.89 7.82 7.48.3.07.72.2.82.47.1.24.06.62.03.86l-.13.8c-.04.24-.19.93.82.51 1.01-.42 5.45-3.21 7.44-5.5 1.38-1.51 1.88-3.03 1.88-4.62Zm-13.1 2.13H4.41a.49.49 0 0 1-.49-.49V8.71c0-.27.22-.49.49-.49s.49.22.49.49v3.07h1.36c.27 0 .49.22.49.49s-.22.49-.49.49Zm1.93-.49c0 .27-.22.49-.49.49s-.49-.22-.49-.49V8.71c0-.27.22-.49.49-.49s.49.22.49.49v3.56Zm4.44 0c0 .21-.14.4-.34.47-.05.02-.1.02-.15.02-.15 0-.3-.07-.39-.19l-1.83-2.49v2.19c0 .27-.22.49-.49.49s-.49-.22-.49-.49V8.71c0-.21.14-.4.34-.47.05-.02.1-.02.15-.02.15 0 .3.07.39.19l1.83 2.49V8.71c0-.27.22-.49.49-.49s.49.22.49.49v3.56Zm3.06-2.27c.27 0 .49.22.49.49s-.22.49-.49.49h-1.36v.8h1.36c.27 0 .49.22.49.49s-.22.49-.49.49h-1.85a.49.49 0 0 1-.49-.49V8.71c0-.27.22-.49.49-.49h1.85c.27 0 .49.22.49.49s-.22.49-.49.49h-1.36v.8h1.36Z"/></svg>
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19.36 10.63c0-4.18-4.19-7.58-9.34-7.58S.68 6.45.68 10.63c0 3.75 3.33 6.89 7.82 7.48.3.07.72.2.82.47.1.24.06.62.03.86l-.13.8c-.04.24-.19.93.82.51 1.01-.42 5.45-3.21 7.44-5.5 1.38-1.51 1.88-3.03 1.88-4.62Zm-13.1 2.13H4.41a.49.49 0 0 1-.49-.49V8.71c0-.27.22-.49.49-.49s.49.22.49.49v3.07h1.36c.27 0 .49.22.49.49s-.22.49-.49.49Zm1.93-.49c0 .27-.22.49-.49.49s-.49-.22-.49-.49V8.71c0-.27.22-.49.49-.49s.49.22.49.49v3.56Zm4.44 0c0 .21-.14.4-.34.47-.05.02-.1.02-.15.02-.15 0-.3-.07-.39-.19l-1.83-2.49v2.19c0 .27-.22.49-.49.49s-.49-.22-.49-.49V8.71c0-.21.14-.4.34-.47.05-.02.1-.02.15-.02.15 0 .3.07.39.19l1.83 2.49V8.71c0-.27.22-.49.49-.49s.49.22.49.49v3.56Zm3.06-2.27c.27 0 .49.22.49.49s-.22.49-.49.49h-1.36v.8h1.36c.27 0 .49.22.49.49s-.22.49-.49.49h-1.85a.49.49 0 0 1-.49-.49V8.71c0-.27.22-.49.49-.49h1.85c.27 0 .49.22.49.49s-.22.49-.49.49h-1.36v.8h1.36Z"/></svg>
+            </a>
+            <a href="https://www.kkict.net/" target="_blank" rel="noreferrer" title="เว็บไซต์หลัก www.kkict.net" aria-label="เว็บไซต์หลัก www.kkict.net">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19"/><path d="M12 2.5a14.5 14.5 0 0 1 3.8 9.5 14.5 14.5 0 0 1-3.8 9.5 14.5 14.5 0 0 1-3.8-9.5A14.5 14.5 0 0 1 12 2.5Z"/></svg>
             </a>
             {emailHref && (
               <a href={emailHref} title={`อีเมล: ${email}`} aria-label={`ส่งอีเมลไปที่ ${email}`}>
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="m3 6.5 9 6 9-6"/></svg>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="m3 6.5 9 6 9-6"/></svg>
               </a>
             )}
             {phoneHref && (
               <a href={phoneHref} title={`โทร: ${phone}`} aria-label={`โทร ${phone}`}>
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.58 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.58 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
               </a>
             )}
           </div>
