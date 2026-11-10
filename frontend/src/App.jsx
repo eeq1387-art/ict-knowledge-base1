@@ -82,9 +82,202 @@ function ContactCard({ contact, title = 'ช่องทางติดต่อ
   </section>
 }
 
+const fallbackFooterCategories = [
+  { categoryId: 1, categoryName: 'ระบบเครือข่ายและอินเทอร์เน็ต' },
+  { categoryId: 2, categoryName: 'คอมพิวเตอร์และอุปกรณ์' },
+  { categoryId: 3, categoryName: 'เครื่องพิมพ์และอุปกรณ์สำนักงาน' },
+  { categoryId: 4, categoryName: 'โปรแกรมและซอฟต์แวร์' },
+  { categoryId: 5, categoryName: 'ระบบสารสนเทศและบริการออนไลน์' },
+]
+
 function Footer() {
   const contact = usePublicData('/settings/contact')
-  return <footer><div className="shell footer-row"><div><b>คลังความรู้และคู่มือบริการไอที (KKICT)</b><p>ศูนย์พัฒนาทักษะและการเรียนรู้ ICT เทศบาลนครขอนแก่น · แหล่งรวมคู่มือและวิธีแก้ไขปัญหาด้านเทคโนโลยีสารสนเทศสำหรับบุคลากรและประชาชน</p><span>ศูนย์ ICT ขอนแก่น · <a href="https://www.kkict.net/" target="_blank" rel="noreferrer">www.kkict.net ↗</a></span></div><ContactCard contact={contact.data} title="ติดต่อศูนย์ ICT" className="footer-contact-card"/></div></footer>
+  const categories = usePublicData('/categories')
+  const info = contact.data || {}
+  const phone = (typeof info.phone === 'string' && info.phone.trim()) || '084-583-0208'
+  const lineId = (typeof info.lineId === 'string' && info.lineId.trim()) || 'kkict.net'
+  const lineUrl = safeHttpsHref(info.lineUrl)
+  const email = (typeof info.email === 'string' && info.email.trim()) || 'info.kkict@gmail.com'
+  const location = (typeof info.location === 'string' && info.location.trim()) || 'ชั้น 2 ตลาดสดเทศบาล 1 ถนนกลางเมือง ต.ในเมือง อ.เมืองขอนแก่น จ.ขอนแก่น 40000'
+  const hours = (typeof info.hours === 'string' && info.hours.trim()) || 'อังคาร – อาทิตย์ เวลา 09:00 – 17:00 น. (หยุดวันจันทร์และวันหยุดนักขัตฤกษ์)'
+  const note = typeof info.note === 'string' ? info.note.trim() : ''
+  const phoneHref = safePhoneHref(phone)
+  const emailHref = safeEmailHref(email)
+  const categoryList = Array.isArray(categories.data) && categories.data.length > 0 ? categories.data.slice(0, 6) : fallbackFooterCategories
+
+  return <footer className="site-footer">
+    <div className="footer-highlights-wrap">
+      <div className="shell footer-highlights">
+        <div className="footer-highlight-card">
+          <span className="footer-highlight-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/><path d="M11 8v3l2 2"/></svg>
+          </span>
+          <div>
+            <b>ค้นหาคู่มือได้ตลอด 24 ชม.</b>
+            <small>รวมวิธีแก้ปัญหาไอทีครบทุกหมวดหมู่</small>
+          </div>
+        </div>
+        <div className="footer-highlight-card">
+          <span className="footer-highlight-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          </span>
+          <div>
+            <b>ขั้นตอนชัดเจน ทำตามง่าย</b>
+            <small>อธิบายทีละลำดับพร้อมภาพอินโฟกราฟิก</small>
+          </div>
+        </div>
+        <div className="footer-highlight-card">
+          <span className="footer-highlight-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+          </span>
+          <div>
+            <b>ดาวน์โหลดคู่มือ PDF ฟรี</b>
+            <small>บันทึกเก็บไว้เปิดดูแบบออฟไลน์ได้ทันที</small>
+          </div>
+        </div>
+        <div className="footer-highlight-card">
+          <span className="footer-highlight-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          </span>
+          <div>
+            <b>บริการโดยศูนย์ ICT ขอนแก่น</b>
+            <small>มาตรฐานบริการสาธารณะเทศบาลนครขอนแก่น</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="footer-main">
+      <div className="shell footer-grid">
+        <div className="footer-brand-col">
+          <Link className="footer-brand-head" to="/">
+            <span className="footer-logo-mark">ICT</span>
+            <div>
+              <b>คลังความรู้และคู่มือบริการไอที (KKICT)</b>
+              <small>KHON KAEN ICT LEARNING CENTER</small>
+            </div>
+          </Link>
+          <p className="footer-brand-desc">
+            ศูนย์พัฒนาทักษะและการเรียนรู้ ICT เทศบาลนครขอนแก่น แหล่งรวบรวมคู่มือมาตรฐาน ขั้นตอนการตั้งค่า และวิธีแก้ไขปัญหาด้านเทคโนโลยีสารสนเทศ คอมพิวเตอร์ เครือข่าย และอุปกรณ์สำนักงานด้วยตนเอง สำหรับบุคลากรและประชาชน
+          </p>
+          <a className="footer-verified-badge" href="https://www.kkict.net/" target="_blank" rel="noreferrer">
+            <span className="verified-badge-icon" aria-hidden="true">✓</span>
+            <div>
+              <b>บริการสาธารณะดิจิทัล · เทศบาลนครขอนแก่น</b>
+              <small>เว็บไซต์หลักศูนย์ ICT ขอนแก่น · www.kkict.net ↗</small>
+            </div>
+          </a>
+        </div>
+
+        <nav className="footer-links-col" aria-label="เกี่ยวกับเราและเมนูหลัก">
+          <h3>เกี่ยวกับเรา</h3>
+          <ul>
+            <li><Link to="/">หน้าแรกคลังความรู้</Link></li>
+            <li><Link to="/articles">คลังความรู้และคู่มือทั้งหมด</Link></li>
+            <li><Link to="/search">ค้นหาวิธีแก้ไขปัญหาไอที</Link></li>
+            <li><Link to="/articles?sort=popular">คู่มือยอดนิยมประจำศูนย์</Link></li>
+            <li><a href="https://www.kkict.net/" target="_blank" rel="noreferrer">เว็บไซต์หลัก kkict.net ↗</a></li>
+            <li><Link to="/admin/login">เข้าสู่ระบบเจ้าหน้าที่</Link></li>
+          </ul>
+        </nav>
+
+        <nav className="footer-links-col" aria-label="หมวดหมู่บริการ">
+          <h3>หมวดหมู่คู่มือบริการ</h3>
+          <ul>
+            {categoryList.map((cat) => (
+              <li key={cat.categoryId}>
+                <Link to={`/articles?category=${cat.categoryId}`}>{cat.categoryName}</Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div className="footer-contact-col">
+          <h3>ติดต่อศูนย์ ICT</h3>
+          <ul className="footer-contact-list">
+            {location && (
+              <li>
+                <span className="contact-item-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                </span>
+                <div><small>สถานที่ตั้ง</small><span>{location}</span></div>
+              </li>
+            )}
+            {phone && (
+              <li>
+                <span className="contact-item-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.58 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                </span>
+                <div><small>โทรศัพท์</small>{phoneHref ? <a href={phoneHref}>{phone}</a> : <span>{phone}</span>}</div>
+              </li>
+            )}
+            {email && (
+              <li>
+                <span className="contact-item-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                </span>
+                <div><small>อีเมล</small>{emailHref ? <a href={emailHref}>{email}</a> : <span>{email}</span>}</div>
+              </li>
+            )}
+            {(lineId || lineUrl) && (
+              <li>
+                <span className="contact-item-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </span>
+                <div><small>LINE Official</small>{lineUrl ? <a href={lineUrl} target="_blank" rel="noreferrer">{lineId || 'เปิด LINE'}</a> : <span>{lineId}</span>}</div>
+              </li>
+            )}
+            {hours && (
+              <li>
+                <span className="contact-item-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </span>
+                <div><small>เวลาทำการ</small><span>{hours}</span></div>
+              </li>
+            )}
+          </ul>
+          {note && <p className="footer-contact-note">{note}</p>}
+
+          <div className="footer-social-row" aria-label="ช่องทางติดต่อด่วน">
+            <a href="https://www.kkict.net/" target="_blank" rel="noreferrer" title="เว็บไซต์หลัก www.kkict.net" aria-label="เว็บไซต์หลัก www.kkict.net">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </a>
+            <a href="https://www.facebook.com/kkict.net" target="_blank" rel="noreferrer" title="Facebook ศูนย์ ICT ขอนแก่น" aria-label="Facebook ศูนย์ ICT ขอนแก่น">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+            </a>
+            <a href={lineUrl || 'https://www.kkict.net/'} target="_blank" rel="noreferrer" title={`LINE: ${lineId}`} aria-label={`LINE ${lineId}`}>
+              <span className="social-line-badge">LINE</span>
+            </a>
+            {emailHref && (
+              <a href={emailHref} title={`อีเมล: ${email}`} aria-label={`ส่งอีเมลไปที่ ${email}`}>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              </a>
+            )}
+            {phoneHref && (
+              <a href={phoneHref} title={`โทร: ${phone}`} aria-label={`โทร ${phone}`}>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.58 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="footer-bottom">
+        <div className="shell footer-bottom-inner">
+          <p>Copyright © {new Date().getFullYear()} ศูนย์พัฒนาทักษะและการเรียนรู้ ICT เทศบาลนครขอนแก่น (KKICT). All rights reserved.</p>
+          <div className="footer-bottom-links">
+            <a href="https://www.kkict.net/" target="_blank" rel="noreferrer">เว็บไซต์หลัก kkict.net</a>
+            <span aria-hidden="true">|</span>
+            <Link to="/articles">คลังความรู้ทั้งหมด</Link>
+            <span aria-hidden="true">|</span>
+            <Link to="/search">ค้นหาคู่มือ</Link>
+            <span aria-hidden="true">|</span>
+            <Link to="/admin/login">สำหรับเจ้าหน้าที่</Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
 }
 
 function SearchBox({ initial = '' }) {
