@@ -125,7 +125,7 @@ export async function generateGuideMedia(guides) {
       pdfPath: path.join(uploadDir, pdfName),
       jpgTempPath: path.join(uploadDir, jpgTempName),
       imageUrl: `/uploads/${imageName}`,
-      pdfUrl: guide.status === 'DRAFT' ? null : `/uploads/${pdfName}`,
+      pdfUrl: `/uploads/${pdfName}`,
     }
   })
 
