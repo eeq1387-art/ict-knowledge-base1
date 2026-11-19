@@ -236,6 +236,57 @@ try {
   assert.equal((await login('Temp-Verify-Password-04')).status, 200)
   console.log('✓ [8] Change & reset password: auth guard (401), validation (400), direct change (200) & forgot-password reset (200)')
 
+  // 9. Profanity search filter, search log deletion, monthly report & 5-image gallery upload
+  const profaneTerm = 'ควย_ทดสอบระบบกรอง'
+  await fetch(`${BASE}/api/articles/search?q=${encodeURIComponent(profaneTerm)}&page=1`, { headers: { 'User-Agent': UA_BROWSER } })
+  await new Promise((r) => setTimeout(r, 120))
+  assert.equal(await prisma.searchLog.count({ where: { term: profaneTerm.toLocaleLowerCase('th-TH') } }), 0, 'Profane search term must not be logged')
+
+  const delTermRes = await fetch(`${BASE}/api/admin/search-logs?term=${encodeURIComponent(uniqueTerm)}&block=0`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${adminToken}` },
+  })
+  assert.equal(delTermRes.status, 200)
+  assert.equal(await prisma.searchLog.count({ where: { term: uniqueTerm } }), 0, 'Deleted search term must be removed from SearchLog')
+
+  const monthlyRes = await fetch(`${BASE}/api/admin/reports/monthly`, { headers: { Authorization: `Bearer ${adminToken}` } })
+  assert.equal(monthlyRes.status, 200)
+  const monthlyData = await monthlyRes.json()
+  assert.ok(/^\d{4}-\d{2}$/.test(monthlyData.month))
+  assert.ok(Array.isArray(monthlyData.availableMonths) && monthlyData.availableMonths.length >= 12)
+  assert.ok(Array.isArray(monthlyData.articlesInMonth))
+  assert.equal(typeof monthlyData.totalMonthViews, 'number')
+
+  const monthlyCsvRes = await fetch(`${BASE}/api/admin/reports/monthly.csv?month=${monthlyData.month}`, { headers: { Authorization: `Bearer ${adminToken}` } })
+  assert.equal(monthlyCsvRes.status, 200)
+  const monthlyCsvText = await monthlyCsvRes.text()
+  assert.ok(monthlyCsvText.includes('รายงานสรุปผลงานคลังความรู้ ICT ประจำเดือน'))
+
+  // Valid 1x1 PNG bytes for multi-image gallery test
+  const tinyPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
+  const sixImagesForm = new FormData()
+  sixImagesForm.append('title', 'ทดสอบเกิน 5 รูป'); sixImagesForm.append('content', 'เนื้อหา'); sixImagesForm.append('categoryId', String(categories[0].categoryId))
+  for (let i = 1; i <= 6; i += 1) {
+    sixImagesForm.append('images', new Blob([tinyPng], { type: 'image/png' }), `img${i}.png`)
+  }
+  assert.equal((await fetch(`${BASE}/api/admin/articles`, { method: 'POST', headers: { Authorization: `Bearer ${adminToken}` }, body: sixImagesForm })).status, 400)
+  assert.deepEqual(fs.readdirSync(uploadDir).sort(), filesBefore)
+
+  const threeImagesForm = new FormData()
+  threeImagesForm.append('title', 'ทดสอบอัปโหลด 3 รูป'); threeImagesForm.append('content', 'เนื้อหาทดสอบแกลเลอรี'); threeImagesForm.append('categoryId', String(categories[0].categoryId))
+  for (let i = 1; i <= 3; i += 1) {
+    threeImagesForm.append('images', new Blob([tinyPng], { type: 'image/png' }), `gallery${i}.png`)
+  }
+  const createdGalleryRes = await fetch(`${BASE}/api/admin/articles`, { method: 'POST', headers: { Authorization: `Bearer ${adminToken}` }, body: threeImagesForm })
+  assert.equal(createdGalleryRes.status, 201)
+  const createdGalleryArticle = await createdGalleryRes.json()
+  assert.equal(createdGalleryArticle.images.length, 3)
+  assert.equal(createdGalleryArticle.image, createdGalleryArticle.images[0])
+  const delGalleryRes = await fetch(`${BASE}/api/admin/articles/${createdGalleryArticle.articleId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${adminToken}` } })
+  assert.equal(delGalleryRes.status, 200)
+  assert.deepEqual(fs.readdirSync(uploadDir).sort(), filesBefore)
+  console.log('✓ [9] Profanity filter, search-log delete, monthly report JSON/CSV & 1-5 image gallery upload/cleanup')
+
   console.log('\nALL VERIFICATION CHECKS PASSED!')
 } finally {
   serverProc.kill()

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="ตราสัญลักษณ์เทศบาลนครขอนแก่น">
+  <defs>
+    <linearGradient id="kkmuni-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="45%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#b45309"/>
+    </linearGradient>
+    <radialGradient id="kkmuni-teal" cx="45%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#155e75"/>
+      <stop offset="100%" stop-color="#062c38"/>
+    </radialGradient>
+  </defs>
+  <!-- Outer golden seal ring -->
+  <circle cx="60" cy="60" r="56" fill="url(#kkmuni-teal)" stroke="url(#kkmuni-gold)" stroke-width="5"/>
+  <circle cx="60" cy="60" r="48" fill="none" stroke="#fde047" stroke-width="1.5" stroke-dasharray="3 2.5" opacity="0.85"/>
+  <!-- Stylized Chedi / Phra That Kham Kaen silhouette & Tamarind stump motif -->
+  <path d="M60 18 L65 34 L71 48 L77 56 L43 56 L49 48 L55 34 Z" fill="url(#kkmuni-gold)"/>
+  <rect x="40" y="56" width="40" height="6" rx="2" fill="#fde047"/>
+  <rect x="35" y="63" width="50" height="8" rx="2.5" fill="url(#kkmuni-gold)"/>
+  <!-- Base & waves -->
+  <path d="M28 76 H92" stroke="#fde047" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Banner label -->
+  <rect x="24" y="82" width="72" height="17" rx="8.5" fill="url(#kkmuni-gold)"/>
+  <text x="60" y="94" text-anchor="middle" font-family="'IBM Plex Sans Thai', 'Noto Sans Thai', sans-serif" font-size="10.5" font-weight="700" fill="#062c38">ทน.ขอนแก่น</text>
+</svg>

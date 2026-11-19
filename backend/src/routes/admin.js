@@ -7,13 +7,225 @@ import multer from 'multer'
 import { prisma } from '../db.js'
 import { requireAdmin } from '../middleware/requireAdmin.js'
 import { CONTACT_FIELDS, CONTACT_SETTING_KEY } from '../contactSettings.js'
+import { addToSearchBlocklist, searchTermBlocker } from '../searchFilter.js'
 
 const router = Router()
 router.use(requireAdmin)
 
+const THAI_MONTHS = [
+  'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+  'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
+]
+
 function bangkokDay(date) {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date)
   return new Date(`${parts.find((part) => part.type === 'year').value}-${parts.find((part) => part.type === 'month').value}-${parts.find((part) => part.type === 'day').value}T00:00:00.000Z`)
+}
+
+function currentBangkokMonth() {
+  return bangkokDay(new Date()).toISOString().slice(0, 7)
+}
+
+function formatMonthLabel(ym) {
+  const [yearStr, monthStr] = String(ym || '').split('-')
+  const year = Number(yearStr)
+  const monthIdx = Number(monthStr) - 1
+  if (!Number.isInteger(year) || monthIdx < 0 || monthIdx > 11) return ym
+  return `${THAI_MONTHS[monthIdx]} ${year}`
+}
+
+async function buildMonthlyReport(rawMonth) {
+  const defaultMonth = currentBangkokMonth()
+  const month = typeof rawMonth === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(rawMonth.trim())
+    ? rawMonth.trim()
+    : defaultMonth
+  const [yearNum, monthNum] = month.split('-').map(Number)
+  const startDay = new Date(Date.UTC(yearNum, monthNum - 1, 1))
+  const endExclusive = new Date(Date.UTC(yearNum, monthNum, 1))
+  const bangkokOffsetMs = 7 * 60 * 60 * 1000
+  const tsStart = new Date(startDay.getTime() - bangkokOffsetMs)
+  const tsEnd = new Date(endExclusive.getTime() - bangkokOffsetMs)
+
+  const [
+    dailyRows,
+    articleDailyTotals,
+    articlesInRange,
+    allArticleDates,
+    earliestDailyView,
+    searchesInMonth,
+    feedbackInMonthRows,
+  ] = await Promise.all([
+    prisma.articleViewDaily.findMany({
+      where: { day: { gte: startDay, lt: endExclusive } },
+      select: { day: true, count: true },
+    }),
+    prisma.articleViewDaily.groupBy({
+      by: ['articleId'],
+      where: { day: { gte: startDay, lt: endExclusive } },
+      _sum: { count: true },
+      orderBy: { _sum: { count: 'desc' } },
+    }),
+    prisma.article.findMany({
+      where: {
+        OR: [
+          { publishedAt: { gte: tsStart, lt: tsEnd } },
+          { createdAt: { gte: tsStart, lt: tsEnd } },
+        ],
+      },
+      orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+      select: {
+        articleId: true,
+        title: true,
+        status: true,
+        viewCount: true,
+        publishedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        image: true,
+        images: true,
+        pdfFile: true,
+        category: { select: { categoryId: true, categoryName: true } },
+      },
+    }),
+    prisma.article.findMany({
+      select: { publishedAt: true, createdAt: true },
+    }),
+    prisma.articleViewDaily.findFirst({
+      orderBy: { day: 'asc' },
+      select: { day: true },
+    }),
+    prisma.searchLog.count({
+      where: { createdAt: { gte: tsStart, lt: tsEnd } },
+    }),
+    prisma.articleFeedback.groupBy({
+      by: ['helpful'],
+      where: { createdAt: { gte: tsStart, lt: tsEnd } },
+      _count: { _all: true },
+    }),
+  ])
+
+  const totalMonthViews = dailyRows.reduce((sum, row) => sum + (row.count || 0), 0)
+  const monthViewsByArticle = new Map(articleDailyTotals.map((row) => [row.articleId, row._sum.count || 0]))
+
+  const involvedIds = [...new Set([
+    ...articlesInRange.map((a) => a.articleId),
+    ...articleDailyTotals.slice(0, 10).map((r) => r.articleId),
+  ])]
+  const [feedbackRows, topViewedArticles] = involvedIds.length
+    ? await Promise.all([
+      prisma.articleFeedback.groupBy({
+        by: ['articleId', 'helpful'],
+        where: { articleId: { in: involvedIds } },
+        _count: { _all: true },
+      }),
+      prisma.article.findMany({
+        where: { articleId: { in: articleDailyTotals.slice(0, 10).map((r) => r.articleId) } },
+        select: {
+          articleId: true,
+          title: true,
+          status: true,
+          viewCount: true,
+          publishedAt: true,
+          createdAt: true,
+          category: { select: { categoryId: true, categoryName: true } },
+        },
+      }),
+    ])
+    : [[], []]
+
+  const feedbackByArticle = new Map()
+  for (const row of feedbackRows) {
+    const item = feedbackByArticle.get(row.articleId) || { feedbackCount: 0, helpfulCount: 0 }
+    item.feedbackCount += row._count._all
+    if (row.helpful) item.helpfulCount += row._count._all
+    feedbackByArticle.set(row.articleId, item)
+  }
+
+  const publishedInMonthCount = articlesInRange.filter((article) => {
+    if (article.status !== 'PUBLISHED') return false
+    const refDate = article.publishedAt || article.createdAt
+    return refDate && refDate >= tsStart && refDate < tsEnd
+  }).length
+  const createdInMonthCount = articlesInRange.filter((article) => article.createdAt >= tsStart && article.createdAt < tsEnd).length
+
+  const articlesInMonth = articlesInRange.map((article) => {
+    const fb = feedbackByArticle.get(article.articleId) || { feedbackCount: 0, helpfulCount: 0 }
+    const imgs = Array.isArray(article.images) && article.images.length ? article.images : (article.image ? [article.image] : [])
+    const publishedInThisMonth = article.status === 'PUBLISHED' && (article.publishedAt || article.createdAt) >= tsStart && (article.publishedAt || article.createdAt) < tsEnd
+    return {
+      articleId: article.articleId,
+      title: article.title,
+      status: article.status,
+      publishedAt: article.publishedAt,
+      createdAt: article.createdAt,
+      updatedAt: article.updatedAt,
+      viewCount: article.viewCount,
+      monthViews: monthViewsByArticle.get(article.articleId) || 0,
+      feedbackCount: fb.feedbackCount,
+      helpfulCount: fb.helpfulCount,
+      helpfulPercent: fb.feedbackCount ? Math.round((fb.helpfulCount * 100) / fb.feedbackCount) : 0,
+      imagesCount: imgs.length,
+      hasPdf: Boolean(article.pdfFile),
+      publishedInThisMonth,
+      category: article.category,
+    }
+  })
+
+  const topArticleMap = new Map(topViewedArticles.map((a) => [a.articleId, a]))
+  const topViewedInMonth = articleDailyTotals
+    .slice(0, 10)
+    .map((row) => {
+      const info = topArticleMap.get(row.articleId)
+      if (!info) return null
+      return {
+        ...info,
+        monthViews: row._sum.count || 0,
+      }
+    })
+    .filter(Boolean)
+
+  let monthFeedbackTotal = 0
+  let monthFeedbackHelpful = 0
+  for (const row of feedbackInMonthRows) {
+    monthFeedbackTotal += row._count._all
+    if (row.helpful) monthFeedbackHelpful += row._count._all
+  }
+
+  // Build available months list (last 12 months + any months with data in DB)
+  const monthSet = new Set([month, defaultMonth])
+  const nowDay = bangkokDay(new Date())
+  for (let offset = 0; offset < 12; offset += 1) {
+    const d = new Date(Date.UTC(nowDay.getUTCFullYear(), nowDay.getUTCMonth() - offset, 1))
+    monthSet.add(d.toISOString().slice(0, 7))
+  }
+  for (const item of allArticleDates) {
+    if (item.publishedAt) monthSet.add(bangkokDay(item.publishedAt).toISOString().slice(0, 7))
+    if (item.createdAt) monthSet.add(bangkokDay(item.createdAt).toISOString().slice(0, 7))
+  }
+  if (earliestDailyView?.day) {
+    monthSet.add(earliestDailyView.day.toISOString().slice(0, 7))
+  }
+  const availableMonths = [...monthSet]
+    .sort((a, b) => b.localeCompare(a))
+    .map((value) => ({ value, label: formatMonthLabel(value) }))
+
+  return {
+    month,
+    monthLabel: formatMonthLabel(month),
+    availableMonths,
+    publishedInMonthCount,
+    createdInMonthCount,
+    totalArticlesInMonth: articlesInMonth.length,
+    totalMonthViews,
+    totalSearchesInMonth: searchesInMonth,
+    feedbackInMonth: {
+      total: monthFeedbackTotal,
+      helpful: monthFeedbackHelpful,
+      helpfulPercent: monthFeedbackTotal ? Math.round((monthFeedbackHelpful * 100) / monthFeedbackTotal) : 0,
+    },
+    articlesInMonth,
+    topViewedInMonth,
+  }
 }
 
 router.get('/insights', async (req, res, next) => {
@@ -28,11 +240,14 @@ router.get('/insights', async (req, res, next) => {
     const bangkokOffsetMs = 7 * 60 * 60 * 1000
     const searchStart = new Date(startDay.getTime() - bangkokOffsetMs)
     const searchEnd = new Date(endExclusive.getTime() - bangkokOffsetMs)
-    const [zeroRows, termRows, dailyRows] = await Promise.all([
-      prisma.searchLog.groupBy({ by: ['term'], where: { createdAt: { gte: searchStart, lt: searchEnd }, resultCount: 0 }, _count: { _all: true }, _max: { createdAt: true }, orderBy: [{ _count: { term: 'desc' } }, { _max: { createdAt: 'desc' } }], take: 10 }),
-      prisma.searchLog.groupBy({ by: ['term'], where: { createdAt: { gte: searchStart, lt: searchEnd } }, _count: { _all: true }, _avg: { resultCount: true }, orderBy: [{ _count: { term: 'desc' } }, { term: 'asc' }], take: 10 }),
+    const [isBlocked, zeroRows, termRows, dailyRows] = await Promise.all([
+      searchTermBlocker(),
+      prisma.searchLog.groupBy({ by: ['term'], where: { createdAt: { gte: searchStart, lt: searchEnd }, resultCount: 0 }, _count: { _all: true }, _max: { createdAt: true }, orderBy: [{ _count: { term: 'desc' } }, { _max: { createdAt: 'desc' } }], take: 30 }),
+      prisma.searchLog.groupBy({ by: ['term'], where: { createdAt: { gte: searchStart, lt: searchEnd } }, _count: { _all: true }, _avg: { resultCount: true }, orderBy: [{ _count: { term: 'desc' } }, { term: 'asc' }], take: 30 }),
       prisma.articleViewDaily.findMany({ where: { day: { gte: startDay, lt: endExclusive } }, select: { day: true, count: true } }),
     ])
+    const cleanZeroRows = zeroRows.filter((row) => !isBlocked(row.term)).slice(0, 10)
+    const cleanTermRows = termRows.filter((row) => !isBlocked(row.term)).slice(0, 10)
     const viewsByDate = new Map()
     for (const row of dailyRows) {
       const key = row.day.toISOString().slice(0, 10)
@@ -49,11 +264,120 @@ router.get('/insights', async (req, res, next) => {
     const articleMap = new Map(articles.map((article) => [article.articleId, article]))
     const topArticlesInRange = articleTotals.map((row) => ({ ...articleMap.get(row.articleId), views: row._sum.count || 0 })).filter((article) => article.articleId)
     res.json({
-      zeroResultTerms: zeroRows.map((row) => ({ term: row.term, count: row._count._all, lastSearched: row._max.createdAt })),
-      topTerms: termRows.map((row) => ({ term: row.term, count: row._count._all, avgResults: Number((row._avg.resultCount || 0).toFixed(1)) })),
+      zeroResultTerms: cleanZeroRows.map((row) => ({ term: row.term, count: row._count._all, lastSearched: row._max.createdAt })),
+      topTerms: cleanTermRows.map((row) => ({ term: row.term, count: row._count._all, avgResults: Number((row._avg.resultCount || 0).toFixed(1)) })),
       viewsByDay,
       topArticlesInRange,
     })
+  } catch (error) { next(error) }
+})
+
+router.delete('/search-logs', async (req, res, next) => {
+  const rawTerm = typeof (req.body?.term ?? req.query?.term) === 'string'
+    ? (req.body?.term ?? req.query?.term).trim()
+    : ''
+  if (!rawTerm || rawTerm.length > 120) {
+    return res.status(400).json({ message: 'กรุณาระบุคำค้นหาที่ต้องการลบ' })
+  }
+  const shouldBlock = req.body?.block !== false && req.query?.block !== '0'
+  try {
+    const deleted = await prisma.searchLog.deleteMany({
+      where: { term: { equals: rawTerm, mode: 'insensitive' } },
+    })
+    if (shouldBlock) {
+      await addToSearchBlocklist(rawTerm)
+    }
+    res.json({
+      message: `ลบคำค้นหา “${rawTerm}” เรียบร้อยแล้ว`,
+      deletedCount: deleted.count,
+      blocked: shouldBlock,
+    })
+  } catch (error) { next(error) }
+})
+
+router.get('/reports/monthly', async (req, res, next) => {
+  if (req.query.month && !/^\d{4}-(0[1-9]|1[0-2])$/.test(String(req.query.month).trim())) {
+    return res.status(400).json({ message: 'รูปแบบเดือนไม่ถูกต้อง (ใช้ YYYY-MM เช่น 2026-11)' })
+  }
+  try {
+    const report = await buildMonthlyReport(req.query.month)
+    res.json(report)
+  } catch (error) { next(error) }
+})
+
+router.get('/reports/monthly.csv', async (req, res, next) => {
+  if (req.query.month && !/^\d{4}-(0[1-9]|1[0-2])$/.test(String(req.query.month).trim())) {
+    return res.status(400).json({ message: 'รูปแบบเดือนไม่ถูกต้อง (ใช้ YYYY-MM เช่น 2026-11)' })
+  }
+  try {
+    const report = await buildMonthlyReport(req.query.month)
+    const statusText = { PUBLISHED: 'เผยแพร่แล้ว', DRAFT: 'ฉบับร่าง', HIDDEN: 'ซ่อนอยู่' }
+    const quote = (value) => {
+      const text = String(value ?? '')
+      const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text
+      return `"${safe.replaceAll('"', '""')}"`
+    }
+    const formatDate = (value) => (value ? new Date(value).toISOString().slice(0, 10) : '—')
+    const rows = [
+      ['รายงานสรุปผลงานคลังความรู้ ICT ประจำเดือน', report.monthLabel],
+      ['หน่วยงาน', 'ศูนย์พัฒนาทักษะและการเรียนรู้ ICT เทศบาลนครขอนแก่น (KKICT)'],
+      [],
+      ['หัวข้อสรุปประจำเดือน', 'จำนวน'],
+      ['จำนวนบทความที่เผยแพร่ในเดือนนี้ (บทความ)', report.publishedInMonthCount],
+      ['จำนวนบทความที่สร้างในเดือนนี้ทั้งหมด (บทความ)', report.createdInMonthCount],
+      ['ยอดเข้าชมบทความรวมเฉพาะในเดือนนี้ (ครั้ง)', report.totalMonthViews],
+      ['จำนวนการค้นหาคู่มือในเดือนนี้ (ครั้ง)', report.totalSearchesInMonth],
+      ['ผลประเมินความพึงพอใจในเดือนนี้ (%)', `${report.feedbackInMonth.helpfulPercent}% (${report.feedbackInMonth.helpful}/${report.feedbackInMonth.total})`],
+      [],
+      ['รายชื่อบทความที่สร้างหรือเผยแพร่ในเดือนนี้'],
+      ['รหัสบทความ', 'ชื่อบทความ', 'หมวดหมู่', 'สถานะ', 'วันที่เผยแพร่', 'วันที่สร้าง', 'ยอดเข้าชมในเดือนนี้ (ครั้ง)', 'ยอดเข้าชมสะสม (ครั้ง)', 'ความพึงพอใจ (%)', 'จำนวนรูปภาพ', 'มีไฟล์ PDF'],
+    ]
+
+    if (report.articlesInMonth.length === 0) {
+      rows.push(['—', 'ไม่มีบทความที่สร้างหรือเผยแพร่ในเดือนนี้', '—', '—', '—', '—', 0, 0, '—', 0, '—'])
+    } else {
+      for (const article of report.articlesInMonth) {
+        rows.push([
+          article.articleId,
+          article.title,
+          article.category?.categoryName || '—',
+          statusText[article.status] || article.status,
+          formatDate(article.publishedAt),
+          formatDate(article.createdAt),
+          article.monthViews,
+          article.viewCount,
+          article.feedbackCount ? `${article.helpfulPercent}% (${article.helpfulCount}/${article.feedbackCount})` : 'ยังไม่มีผลประเมิน',
+          article.imagesCount,
+          article.hasPdf ? 'มี' : 'ไม่มี',
+        ])
+      }
+    }
+
+    rows.push(
+      [],
+      ['อันดับบทความที่มียอดเข้าชมสูงสุดเฉพาะในเดือนนี้'],
+      ['อันดับ', 'รหัสบทความ', 'ชื่อบทความ', 'หมวดหมู่', 'ยอดเข้าชมในเดือนนี้ (ครั้ง)', 'ยอดเข้าชมสะสม (ครั้ง)'],
+    )
+    if (report.topViewedInMonth.length === 0) {
+      rows.push(['—', '—', 'ยังไม่มีข้อมูลการเข้าชมรายวันในเดือนนี้', '—', 0, 0])
+    } else {
+      report.topViewedInMonth.forEach((article, idx) => {
+        rows.push([
+          idx + 1,
+          article.articleId,
+          article.title,
+          article.category?.categoryName || '—',
+          article.monthViews,
+          article.viewCount,
+        ])
+      })
+    }
+
+    res.set({
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="ict-monthly-report-${report.month}.csv"`,
+    })
+    res.send(`\uFEFF${rows.map((row) => row.map(quote).join(',')).join('\r\n')}`)
   } catch (error) { next(error) }
 })
 
@@ -62,39 +386,55 @@ const uploadDir = path.resolve(routeDir, '../../uploads')
 await mkdir(uploadDir, { recursive: true })
 const IMAGE_TYPES = new Map([['.jpg', 'image/jpeg'], ['.jpeg', 'image/jpeg'], ['.png', 'image/png'], ['.webp', 'image/webp']])
 const PDF_TYPES = new Map([['.pdf', 'application/pdf']])
+const MAX_IMAGES_PER_ARTICLE = 5
 const storage = multer.diskStorage({
   destination: (_req, _file, done) => done(null, uploadDir),
   filename: (_req, file, done) => done(null, `${randomUUID()}${path.extname(file.originalname).toLowerCase()}`),
 })
 const upload = multer({
   storage,
-  limits: { files: 2, fileSize: 15 * 1024 * 1024 },
+  limits: { files: MAX_IMAGES_PER_ARTICLE + 1, fileSize: 15 * 1024 * 1024 },
   fileFilter: (_req, file, done) => {
     const ext = path.extname(file.originalname).toLowerCase()
-    const expected = file.fieldname === 'image' ? IMAGE_TYPES.get(ext) : file.fieldname === 'pdfFile' ? PDF_TYPES.get(ext) : null
+    const isImageField = file.fieldname === 'image' || file.fieldname === 'images'
+    const expected = isImageField ? IMAGE_TYPES.get(ext) : file.fieldname === 'pdfFile' ? PDF_TYPES.get(ext) : null
     if (!expected || expected !== file.mimetype) return done(new multer.MulterError('LIMIT_UNEXPECTED_FILE', file.fieldname))
     done(null, true)
   },
 })
 
 function uploadFiles(req, res, next) {
-  upload.fields([{ name: 'image', maxCount: 1 }, { name: 'pdfFile', maxCount: 1 }])(req, res, async (error) => {
+  upload.fields([
+    { name: 'image', maxCount: MAX_IMAGES_PER_ARTICLE },
+    { name: 'images', maxCount: MAX_IMAGES_PER_ARTICLE },
+    { name: 'pdfFile', maxCount: 1 },
+  ])(req, res, async (error) => {
     if (error) {
       await removeNewFiles(req.files)
-      if (error instanceof multer.MulterError) return res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ message: 'ไฟล์ไม่ถูกชนิดหรือมีขนาดใหญ่เกินกำหนด (รูปไม่เกิน 5 MB, PDF ไม่เกิน 15 MB)' })
+      if (error instanceof multer.MulterError) return res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ message: 'ไฟล์ไม่ถูกชนิดหรือมีขนาดใหญ่เกินกำหนด (รูปไม่เกิน 5 รูป รูปละไม่เกิน 5 MB, PDF ไม่เกิน 15 MB)' })
       return next(error)
     }
     try {
+      const imageFiles = [...(req.files?.images || []), ...(req.files?.image || [])]
+      if (imageFiles.length > MAX_IMAGES_PER_ARTICLE) {
+        throw Object.assign(new Error('TOO_MANY_IMAGES'), { status: 400 })
+      }
       const files = Object.values(req.files || {}).flat()
       for (const file of files) {
-        if (file.fieldname === 'image' && file.size > 5 * 1024 * 1024) throw Object.assign(new Error('IMAGE_TOO_LARGE'), { status: 413 })
+        const isImage = file.fieldname === 'image' || file.fieldname === 'images'
+        if (isImage && file.size > 5 * 1024 * 1024) throw Object.assign(new Error('IMAGE_TOO_LARGE'), { status: 413 })
         const bytes = await readMagicBytes(file.path)
         if (!validSignature(file, bytes)) throw Object.assign(new Error('INVALID_FILE_SIGNATURE'), { status: 400 })
       }
       next()
     } catch (validationError) {
       await removeNewFiles(req.files)
-      res.status(validationError.status || 400).json({ message: validationError.status === 413 ? 'รูปภาพต้องมีขนาดไม่เกิน 5 MB' : 'เนื้อหาไฟล์ไม่ตรงกับชนิดไฟล์ที่อนุญาต' })
+      const message = validationError.message === 'TOO_MANY_IMAGES'
+        ? 'สามารถแนบรูปภาพประกอบได้สูงสุดไม่เกิน 5 รูป'
+        : validationError.status === 413
+          ? 'รูปภาพแต่ละรูปต้องมีขนาดไม่เกิน 5 MB'
+          : 'เนื้อหาไฟล์ไม่ตรงกับชนิดไฟล์ที่อนุญาต'
+      res.status(validationError.status || 400).json({ message })
     }
   })
 }
@@ -132,6 +472,10 @@ async function removeStoredUpload(value) {
   if (filename) await unlink(path.join(uploadDir, filename)).catch(() => {})
 }
 function optionalUpload(req, field) { return req.files?.[field]?.[0] ? storedUpload(req.files[field][0].filename) : null }
+function uploadedImageList(req) {
+  const files = [...(req.files?.images || []), ...(req.files?.image || [])]
+  return files.map((file) => storedUpload(file.filename)).filter(Boolean)
+}
 
 router.put('/settings/contact', async (req, res, next) => {
   const input = req.body
@@ -210,7 +554,7 @@ router.get('/dashboard', async (_req, res, next) => {
 router.get('/reports/articles.csv', async (_req, res, next) => {
   try {
     const [articles, feedbackRows] = await Promise.all([
-      prisma.article.findMany({ orderBy: { updatedAt: 'desc' }, select: { articleId: true, title: true, status: true, viewCount: true, updatedAt: true, image: true, pdfFile: true, category: { select: { categoryName: true } } } }),
+      prisma.article.findMany({ orderBy: { updatedAt: 'desc' }, select: { articleId: true, title: true, status: true, viewCount: true, updatedAt: true, image: true, images: true, pdfFile: true, category: { select: { categoryName: true } } } }),
       prisma.articleFeedback.groupBy({ by: ['articleId', 'helpful'], _count: { _all: true } }),
     ])
     const feedback = new Map()
@@ -228,7 +572,8 @@ router.get('/reports/articles.csv', async (_req, res, next) => {
     const rows = [['รหัสบทความ', 'ชื่อบทความ', 'หมวดหมู่', 'สถานะ', 'ยอดเข้าชม', 'โหวตมีประโยชน์', 'โหวตทั้งหมด', 'ความพึงพอใจ (%)', 'มีรูปภาพ', 'มีไฟล์ PDF', 'อัปเดตล่าสุด']]
     for (const article of articles) {
       const votes = feedback.get(article.articleId) || { helpful: 0, total: 0 }
-      rows.push([article.articleId, article.title, article.category.categoryName, article.status, article.viewCount, votes.helpful, votes.total, votes.total ? Math.round(votes.helpful * 100 / votes.total) : 0, article.image ? 'มี' : 'ไม่มี', article.pdfFile ? 'มี' : 'ไม่มี', article.updatedAt.toISOString()])
+      const imgCount = Array.isArray(article.images) && article.images.length ? article.images.length : (article.image ? 1 : 0)
+      rows.push([article.articleId, article.title, article.category.categoryName, article.status, article.viewCount, votes.helpful, votes.total, votes.total ? Math.round(votes.helpful * 100 / votes.total) : 0, imgCount ? `มี (${imgCount} รูป)` : 'ไม่มี', article.pdfFile ? 'มี' : 'ไม่มี', article.updatedAt.toISOString()])
     }
     res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="ict-knowledge-articles.csv"' })
     res.send(`\uFEFF${rows.map((row) => row.map(quote).join(',')).join('\r\n')}`)
@@ -342,8 +687,16 @@ router.post('/articles', uploadFiles, async (req, res, next) => {
   try {
     const category = await prisma.category.findUnique({ where: { categoryId: parsed.data.categoryId }, select: { categoryId: true } })
     if (!category) { await removeNewFiles(req.files); return res.status(400).json({ message: 'ไม่พบหมวดหมู่ที่เลือก' }) }
+    const images = uploadedImageList(req)
+    if (images.length > MAX_IMAGES_PER_ARTICLE) {
+      await removeNewFiles(req.files)
+      return res.status(400).json({ message: 'สามารถแนบรูปภาพประกอบได้สูงสุดไม่เกิน 5 รูป' })
+    }
     const article = await prisma.article.create({ data: {
-      ...parsed.data, image: optionalUpload(req, 'image'), pdfFile: optionalUpload(req, 'pdfFile'),
+      ...parsed.data,
+      image: images[0] || null,
+      images,
+      pdfFile: optionalUpload(req, 'pdfFile'),
       publishedAt: parsed.data.status === 'PUBLISHED' ? new Date() : null,
     }, include: { category: { select: { categoryId: true, categoryName: true } } } })
     res.status(201).json(article)
@@ -356,17 +709,50 @@ router.patch('/articles/:id', uploadFiles, async (req, res, next) => {
   if (!Number.isInteger(articleId) || articleId < 1) { await removeNewFiles(req.files); return res.status(400).json({ message: 'รหัสบทความไม่ถูกต้อง' }) }
   if (parsed.error) { await removeNewFiles(req.files); return res.status(400).json({ message: parsed.error }) }
   try {
-    const existing = await prisma.article.findUnique({ where: { articleId }, select: { image: true, pdfFile: true, publishedAt: true } })
+    const existing = await prisma.article.findUnique({ where: { articleId }, select: { image: true, images: true, pdfFile: true, publishedAt: true } })
     if (!existing) { await removeNewFiles(req.files); return res.status(404).json({ message: 'ไม่พบบทความนี้' }) }
     const category = await prisma.category.findUnique({ where: { categoryId: parsed.data.categoryId }, select: { categoryId: true } })
     if (!category) { await removeNewFiles(req.files); return res.status(400).json({ message: 'ไม่พบหมวดหมู่ที่เลือก' }) }
-    const image = optionalUpload(req, 'image') || (req.body.removeImage === 'true' ? null : existing.image)
+
+    const currentImages = Array.isArray(existing.images) && existing.images.length > 0
+      ? existing.images
+      : existing.image ? [existing.image] : []
+
+    let keptImages = currentImages
+    if (typeof req.body.keptImages === 'string') {
+      try {
+        const parsedKept = JSON.parse(req.body.keptImages)
+        if (Array.isArray(parsedKept)) {
+          keptImages = [...new Set(parsedKept.filter((u) => typeof u === 'string' && currentImages.includes(u)))]
+        }
+      } catch {
+        keptImages = []
+      }
+    } else if (req.body.removeImage === 'true') {
+      keptImages = []
+    } else if (req.files?.image?.length && !req.files?.images?.length) {
+      keptImages = []
+    }
+
+    const newImages = uploadedImageList(req)
+    const combinedImages = [...keptImages, ...newImages]
+    if (combinedImages.length > MAX_IMAGES_PER_ARTICLE) {
+      await removeNewFiles(req.files)
+      return res.status(400).json({ message: 'สามารถแนบรูปภาพประกอบได้สูงสุดไม่เกิน 5 รูป' })
+    }
+
+    const image = combinedImages[0] || null
     const pdfFile = optionalUpload(req, 'pdfFile') || (req.body.removePdf === 'true' ? null : existing.pdfFile)
     const article = await prisma.article.update({ where: { articleId }, data: {
-      ...parsed.data, image, pdfFile,
+      ...parsed.data,
+      image,
+      images: combinedImages,
+      pdfFile,
       publishedAt: parsed.data.status === 'PUBLISHED' ? existing.publishedAt || new Date() : existing.publishedAt,
     }, include: { category: { select: { categoryId: true, categoryName: true } } } })
-    if (image !== existing.image) await removeStoredUpload(existing.image)
+
+    const removedOldImages = currentImages.filter((url) => !combinedImages.includes(url))
+    await Promise.all(removedOldImages.map((url) => removeStoredUpload(url)))
     if (pdfFile !== existing.pdfFile) await removeStoredUpload(existing.pdfFile)
     res.json(article)
   } catch (error) { await removeNewFiles(req.files); next(error) }
@@ -388,8 +774,9 @@ router.delete('/articles/:id', async (req, res, next) => {
   const articleId = Number.parseInt(req.params.id, 10)
   if (!Number.isInteger(articleId) || articleId < 1) return res.status(400).json({ message: 'รหัสบทความไม่ถูกต้อง' })
   try {
-    const article = await prisma.article.delete({ where: { articleId }, select: { image: true, pdfFile: true } })
-    await Promise.all([removeStoredUpload(article.image), removeStoredUpload(article.pdfFile)])
+    const article = await prisma.article.delete({ where: { articleId }, select: { image: true, images: true, pdfFile: true } })
+    const allImages = new Set([...(Array.isArray(article.images) ? article.images : []), article.image].filter(Boolean))
+    await Promise.all([...[...allImages].map((img) => removeStoredUpload(img)), removeStoredUpload(article.pdfFile)])
     res.json({ message: 'ลบบทความแล้ว' })
   } catch (error) {
     if (error.code === 'P2025') return res.status(404).json({ message: 'ไม่พบบทความนี้' })

@@ -15,13 +15,20 @@ const excerpt = (value = '') => {
   return `${(lastSpace > 0 ? shortened.slice(0, lastSpace) : shortened).trimEnd()}…`
 }
 
+export function BrandLogos({ className = '' }) {
+  return <span className={`brand-logos ${className}`.trim()} aria-hidden="true">
+    <img className="brand-logo-img logo-muni" src="/logo-kkmuni.svg" alt="ตราสัญลักษณ์เทศบาลนครขอนแก่น" width="44" height="44"/>
+    <img className="brand-logo-img logo-ict" src="/logo-kkict.svg" alt="ตราสัญลักษณ์ศูนย์ ICT ขอนแก่น" width="44" height="44"/>
+  </span>
+}
+
 function Header() {
   let isAdmin = false
   try { isAdmin = Boolean(window.sessionStorage.getItem('ict-admin-token')) } catch { /* Storage can be disabled by browser policy. */ }
   return <>
     <div className="utility"><div className="shell utility-inner"><span>ศูนย์พัฒนาทักษะและการเรียนรู้ ICT เทศบาลนครขอนแก่น (KKICT)</span><span>บริการคลังความรู้ดิจิทัล · <a href="https://www.kkict.net/" target="_blank" rel="noreferrer">เว็บไซต์หลัก kkict.net ↗</a></span></div></div>
     <header className="site-header"><div className="shell nav-row">
-      <Link className="brand" to="/"><span className="brand-mark">ICT</span><span><b>คลังความรู้ ICT</b><small>ศูนย์พัฒนาทักษะและการเรียนรู้ ICT ขอนแก่น</small></span></Link>
+      <Link className="brand" to="/"><BrandLogos/><span><b>คลังความรู้ ICT</b><small>ศูนย์พัฒนาทักษะและการเรียนรู้ ICT เทศบาลนครขอนแก่น</small></span></Link>
       <nav><NavLink to="/" end>หน้าแรก</NavLink><NavLink to="/articles">คลังความรู้</NavLink></nav>
       <Link className="nav-staff-btn" to={isAdmin ? '/admin' : '/admin/login'}>
         <span className="nav-staff-icon" aria-hidden="true">
@@ -152,10 +159,10 @@ function Footer() {
       <div className="shell footer-grid">
         <div className="footer-brand-col">
           <Link className="footer-brand-head" to="/" onClick={scrollToTop}>
-            <span className="footer-logo-mark">ICT</span>
+            <BrandLogos className="footer-brand-logos"/>
             <div>
               <b>คลังความรู้และคู่มือบริการไอที (KKICT)</b>
-              <small>KHON KAEN ICT LEARNING CENTER</small>
+              <small>เทศบาลนครขอนแก่น · KHON KAEN ICT LEARNING CENTER</small>
             </div>
           </Link>
           <p className="footer-brand-desc">
@@ -295,9 +302,12 @@ function CategoryGrid({ categories = [] }) {
 }
 
 function ArticleCard({ article }) {
+  const images = Array.isArray(article.images) && article.images.length > 0 ? article.images : (article.image ? [article.image] : [])
+  const coverImage = images[0] || null
   return <article className="article-card"><Link className="article-art" to={`/articles/${article.articleId}`} aria-label={`อ่าน ${article.title}`}>
-    {article.image ? <img src={assetUrl(article.image)} alt=""/> : <div className="art-placeholder"><span>{article.category?.categoryName || 'คู่มือ ICT'}</span><b>{article.title.slice(0, 1)}</b><i>ICT KNOWLEDGE</i></div>}
+    {coverImage ? <img src={assetUrl(coverImage)} alt="" loading="lazy"/> : <div className="art-placeholder"><span>{article.category?.categoryName || 'คู่มือ ICT'}</span><b>{article.title.slice(0, 1)}</b><i>ICT KNOWLEDGE</i></div>}
     {article.featured && <span className="featured-tag">แนะนำ</span>}
+    {images.length > 1 && <span className="gallery-count-tag">🖼 {images.length} รูป</span>}
   </Link><div className="article-copy"><div className="article-meta"><span>{article.category?.categoryName || 'ความรู้ทั่วไป'}</span><span>{dateLabel(article.publishedAt || article.createdAt)}</span></div>
     <h3><Link to={`/articles/${article.articleId}`}>{article.title}</Link></h3><p>{excerpt(article.content)}</p><div className="article-bottom"><span>◷ {article.viewCount.toLocaleString('th-TH')} ครั้ง</span><Link to={`/articles/${article.articleId}`}>อ่านเพิ่มเติม <b>→</b></Link></div>
   </div></article>
@@ -353,11 +363,29 @@ function ArticlePage() {
   const contact = usePublicData('/settings/contact')
   const [vote, setVote] = useState({ id: '', value: '', count: null, helpfulCount: null })
   const [sending, setSending] = useState(false)
-  const [lightbox, setLightbox] = useState(false)
+  const [imageSelection, setImageSelection] = useState({ id: '', index: 0 })
+  const [lightboxIndex, setLightboxIndex] = useState(null)
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState('')
   const related = usePublicData(article ? `/articles?category=${article.categoryId}&limit=6` : '')
   useDocumentTitle(article?.title || (loading ? 'กำลังโหลดบทความ' : 'ไม่พบบทความ'))
+  const galleryImages = Array.isArray(article?.images) && article.images.length > 0
+    ? article.images.filter(Boolean)
+    : article?.image ? [article.image] : []
+  const rawActiveIndex = imageSelection.id === id ? imageSelection.index : 0
+  const activeImageIndex = galleryImages.length > 0 ? Math.min(rawActiveIndex, galleryImages.length - 1) : 0
+  const setActiveImageIndex = (index) => setImageSelection({ id, index })
+
+  useEffect(() => {
+    if (lightboxIndex === null) return undefined
+    function onKeyDown(event) {
+      if (event.key === 'Escape') setLightboxIndex(null)
+      else if (event.key === 'ArrowRight' && galleryImages.length > 1) setLightboxIndex((idx) => (idx + 1) % galleryImages.length)
+      else if (event.key === 'ArrowLeft' && galleryImages.length > 1) setLightboxIndex((idx) => (idx - 1 + galleryImages.length) % galleryImages.length)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [lightboxIndex, galleryImages.length])
   const voteValue = vote.id === id ? vote.value : ''
   let storedVote = null
   try { storedVote = window.localStorage.getItem(`ict-article-vote-${id}`) } catch { /* Voting remains available when storage is blocked. */ }
@@ -398,6 +426,10 @@ function ArticlePage() {
   const paragraphs = (article.content || '').split(/\n{2,}/).filter(Boolean)
   const relatedArticles = (related.data || []).filter((item) => item.articleId !== article.articleId).slice(0, 4)
   const quickHelpHref = contactActionHref(contact.data)
+  const activeImage = galleryImages[activeImageIndex] || null
+  const shareUrl = typeof window !== 'undefined' ? window.location.href : ''
+  const lineShareHref = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}`
+  const facebookShareHref = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`
   return <main className="article-detail shell">
     {preview && <div className="preview-banner" role="status"><b>โหมดดูตัวอย่างของเจ้าหน้าที่</b><span>การเปิดหน้านี้จะไม่ถูกนับเป็นยอดเข้าชม</span></div>}
 
@@ -410,9 +442,18 @@ function ArticlePage() {
           <span>◷ เข้าชม {Number(article.viewCount || 0).toLocaleString('th-TH')} ครั้ง</span>
           <span>✎ อัปเดตล่าสุด {dateLabel(article.updatedAt)}</span>
           {steps.length > 0 && <span>✓ {steps.length} ขั้นตอนปฏิบัติ</span>}
+          {galleryImages.length > 0 && <span>🖼 {galleryImages.length} ภาพประกอบ</span>}
         </div>
         <div className="article-tools">
           <button className="print-button" onClick={copyLink}>{copied ? '✓ คัดลอกลิงก์แล้ว' : '⧉ คัดลอกลิงก์คู่มือ'}</button>
+          <a className="share-button share-line" href={lineShareHref} target="_blank" rel="noopener noreferrer" aria-label="แชร์คู่มือนี้ไปยัง LINE">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M20.5 10.6c0-4.1-4.1-7.4-9.1-7.4S2.3 6.5 2.3 10.6c0 3.7 3.2 6.7 7.6 7.3.3.1.7.2.8.5.1.3.1.6 0 .9l-.1.8c0 .2-.2.9.8.5 1-.4 5.3-3.1 7.2-5.3 1.3-1.4 1.9-3 1.9-4.7z"/></svg>
+            <span>แชร์ไปยัง LINE</span>
+          </a>
+          <a className="share-button share-facebook" href={facebookShareHref} target="_blank" rel="noopener noreferrer" aria-label="แชร์คู่มือนี้ไปยัง Facebook">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.02 3.66 9.18 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.49-3.91 3.78-3.91 1.09 0 2.24.2 2.24.2v2.47h-1.26c-1.24 0-1.63.78-1.63 1.57v1.88h2.78l-.45 2.91h-2.33V22c4.78-.76 8.43-4.92 8.43-9.94z"/></svg>
+            <span>แชร์ไปยัง Facebook</span>
+          </a>
           <button className="print-button" onClick={() => window.print()}>▤ พิมพ์คู่มือ / บันทึกเป็น PDF</button>
           {article.pdfFile && <a className="download-button hero-pdf-btn" href={assetUrl(article.pdfFile)} download>⬇ ดาวน์โหลด PDF</a>}
           {copyError && <span role="status">{copyError}</span>}
@@ -433,7 +474,49 @@ function ArticlePage() {
 
     <div className="detail-layout">
       <article className="detail-main">
-        {article.image ? <button className="detail-image-button" onClick={() => setLightbox(true)} aria-label="ขยายภาพประกอบ"><img className="detail-image" src={assetUrl(article.image)} alt={`ภาพประกอบ ${article.title}`}/><span>🔍 คลิกเพื่อขยายภาพอินโฟกราฟิก</span></button> : <div className="detail-placeholder" aria-label={`หมวดหมู่ ${article.category?.categoryName}`}><span>{categoryIcons[(Number(article.categoryId || 1) - 1) % categoryIcons.length] || '▣'}</span><b>{article.category?.categoryName || 'คู่มือ ICT'}</b></div>}
+        {activeImage ? (
+          <div className="detail-media-showcase">
+            <button className="detail-image-button" onClick={() => setLightboxIndex(activeImageIndex)} aria-label="ขยายภาพประกอบ">
+              <img className="detail-image" src={assetUrl(activeImage)} alt={`ภาพประกอบ ${article.title} (${activeImageIndex + 1}/${galleryImages.length})`}/>
+              <span>🔍 คลิกเพื่อขยายภาพ ({activeImageIndex + 1}/{galleryImages.length})</span>
+            </button>
+            {galleryImages.length > 1 && (
+              <div className="detail-gallery" aria-label="แกลเลอรีรูปภาพประกอบบทความ">
+                <div className="detail-gallery-head">
+                  <b>🖼 รูปภาพประกอบบทความ ({galleryImages.length} รูป)</b>
+                  <small>คลิกรูปย่อเพื่อสลับภาพหลัก หรือกดปุ่มแว่นขยายเพื่อดูภาพเต็มจอ</small>
+                </div>
+                <div className="detail-gallery-grid">
+                  {galleryImages.map((imgUrl, index) => (
+                    <div key={`${imgUrl}-${index}`} className={`detail-gallery-item${index === activeImageIndex ? ' is-active' : ''}`}>
+                      <button
+                        type="button"
+                        className="detail-gallery-thumb"
+                        onClick={() => {
+                          if (index === activeImageIndex) setLightboxIndex(index)
+                          else setActiveImageIndex(index)
+                        }}
+                        aria-label={`ดูรูปประกอบที่ ${index + 1}`}
+                      >
+                        <img src={assetUrl(imgUrl)} alt={`รูปประกอบที่ ${index + 1}`}/>
+                        <span className="gallery-thumb-badge">{index === 0 ? 'ภาพปก' : `ภาพที่ ${index + 1}`}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="gallery-zoom-btn"
+                        onClick={() => setLightboxIndex(index)}
+                        title={`ขยายภาพที่ ${index + 1} เต็มจอ`}
+                        aria-label={`ขยายภาพที่ ${index + 1} เต็มจอ`}
+                      >
+                        🔍 ขยาย
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : <div className="detail-placeholder" aria-label={`หมวดหมู่ ${article.category?.categoryName}`}><span>{categoryIcons[(Number(article.categoryId || 1) - 1) % categoryIcons.length] || '▣'}</span><b>{article.category?.categoryName || 'คู่มือ ICT'}</b></div>}
 
         <div id="article-intro" className="article-content">
           <div className="content-section-bar"><span>📖 รายละเอียดและคำอธิบายประกอบ</span><small>อ่านทำความเข้าใจก่อนเริ่มปฏิบัติตามขั้นตอน</small></div>
@@ -504,7 +587,38 @@ function ArticlePage() {
         </a>}
       </aside>
     </div>
-    {lightbox && <div className="lightbox" role="dialog" aria-modal="true" aria-label="ภาพประกอบขนาดใหญ่" onClick={() => setLightbox(false)}><button onClick={() => setLightbox(false)} aria-label="ปิดภาพ">×</button><img src={assetUrl(article.image)} alt={`ภาพประกอบ ${article.title}`}/></div>}
+    {lightboxIndex !== null && galleryImages[lightboxIndex] && (
+      <div className="lightbox" role="dialog" aria-modal="true" aria-label="ภาพประกอบขนาดใหญ่" onClick={() => setLightboxIndex(null)}>
+        <button type="button" className="lightbox-close" onClick={() => setLightboxIndex(null)} aria-label="ปิดภาพ">×</button>
+        {galleryImages.length > 1 && (
+          <button
+            type="button"
+            className="lightbox-nav lightbox-prev"
+            onClick={(event) => { event.stopPropagation(); setLightboxIndex((lightboxIndex - 1 + galleryImages.length) % galleryImages.length) }}
+            aria-label="ภาพก่อนหน้า"
+          >
+            ‹
+          </button>
+        )}
+        <div className="lightbox-stage" onClick={(event) => event.stopPropagation()}>
+          <img src={assetUrl(galleryImages[lightboxIndex])} alt={`ภาพประกอบ ${article.title} (${lightboxIndex + 1}/${galleryImages.length})`}/>
+          <div className="lightbox-caption">
+            <span>{article.title}</span>
+            <b>ภาพที่ {lightboxIndex + 1} จาก {galleryImages.length}</b>
+          </div>
+        </div>
+        {galleryImages.length > 1 && (
+          <button
+            type="button"
+            className="lightbox-nav lightbox-next"
+            onClick={(event) => { event.stopPropagation(); setLightboxIndex((lightboxIndex + 1) % galleryImages.length) }}
+            aria-label="ภาพถัดไป"
+          >
+            ›
+          </button>
+        )}
+      </div>
+    )}
   </main>
 }
 

@@ -465,15 +465,18 @@ async function main() {
 
     const existing = await prisma.article.findFirst({
       where: { title: guide.title },
-      select: { articleId: true, viewCount: true },
+      select: { articleId: true, viewCount: true, images: true },
     })
     const effectiveViews = zeroStats ? 0 : keepStats ? (existing?.viewCount ?? 0) : views
+    const existingExtras = Array.isArray(existing?.images) ? existing.images.slice(1) : []
+    const galleryImages = [media.imageUrl, ...existingExtras.filter((url) => url && url !== media.imageUrl)].slice(0, 5)
     const data = {
       ...fields,
       categoryId,
       content,
       steps,
-      image: media.imageUrl,
+      image: galleryImages[0] || null,
+      images: galleryImages,
       pdfFile: media.pdfUrl,
       viewCount: effectiveViews,
       status,

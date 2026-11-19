@@ -78,7 +78,7 @@ export function AdminLoginPage() {
             <div className="showcase-metrics-row">
               <div className="showcase-mini-stat">
                 <span>คู่มือพร้อมใช้งาน</span>
-                <b>18 บทความ</b>
+                <b>20 บทความ</b>
               </div>
               <div className="showcase-mini-stat is-gold">
                 <span>บริการประชาชน</span>
@@ -127,7 +127,13 @@ export function AdminLoginPage() {
 
       <div className="admin-login-card">
         <div className="login-card-top">
-          <Link className="admin-brand" to="/"><span className="brand-mark">ICT</span><span><b>คลังความรู้ ICT</b><small>ศูนย์พัฒนาทักษะและการเรียนรู้ ICT ขอนแก่น</small></span></Link>
+          <Link className="admin-brand" to="/">
+            <span className="brand-logos" aria-hidden="true">
+              <img className="brand-logo-img logo-muni" src="/logo-kkmuni.svg" alt="ตราสัญลักษณ์เทศบาลนครขอนแก่น" width="44" height="44"/>
+              <img className="brand-logo-img logo-ict" src="/logo-kkict.svg" alt="ตราสัญลักษณ์ศูนย์ ICT ขอนแก่น" width="44" height="44"/>
+            </span>
+            <span><b>คลังความรู้ ICT</b><small>ศูนย์พัฒนาทักษะและการเรียนรู้ ICT ขอนแก่น</small></span>
+          </Link>
           <div className="login-mode-tabs" role="tablist" aria-label="โหมดการเข้าใช้งาน">
             <button type="button" role="tab" aria-selected={mode === 'login'} className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); setError('') }}>เข้าสู่ระบบ</button>
             <button type="button" role="tab" aria-selected={mode === 'reset'} className={mode === 'reset' ? 'active' : ''} onClick={() => { setMode('reset'); setError(''); setNotice('') }}>ตั้งรหัสใหม่</button>

@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken'
 import rateLimit from 'express-rate-limit'
 import { prisma } from '../db.js'
 import { CONTACT_SETTING_KEY, normalizeContactSettings } from '../contactSettings.js'
+import { searchTermBlocker } from '../searchFilter.js'
 
 const router = Router()
 const feedbackLimiter = rateLimit({
@@ -39,7 +40,7 @@ function firstHitInWindow(key) {
 const publicArticle = { status: 'PUBLISHED' }
 const articleSelect = {
   articleId: true, categoryId: true, title: true, content: true, steps: true,
-  keywords: true, image: true, pdfFile: true, viewCount: true, featured: true,
+  keywords: true, image: true, images: true, pdfFile: true, viewCount: true, featured: true,
   publishedAt: true, createdAt: true, updatedAt: true,
   category: { select: { categoryId: true, categoryName: true } },
 }
@@ -124,7 +125,10 @@ router.get('/articles/search', async (req, res, next) => {
     if (query && page === 1) {
       const term = query.toLocaleLowerCase('th-TH').trim().slice(0, 120)
       if (firstHitInWindow(`search:${visitorFingerprint(req)}:${term}`)) {
-        prisma.searchLog.create({ data: { term, resultCount: total } }).catch(() => {})
+        // Rude or staff-blocked terms are never stored, so they never reach the dashboard.
+        searchTermBlocker()
+          .then((isBlocked) => (isBlocked(term) ? null : prisma.searchLog.create({ data: { term, resultCount: total } })))
+          .catch(() => {})
       }
     }
     const skip = (page - 1) * pageSize
@@ -141,7 +145,7 @@ router.get('/articles/search', async (req, res, next) => {
             ELSE 3 END ASC, a.published_at DESC`
       const rows = await prisma.$queryRaw(Prisma.sql`
         SELECT a.article_id AS "articleId", a.category_id AS "categoryId", a.title,
-          a.content, a.steps, a.keywords, a.image, a.pdf_file AS "pdfFile",
+          a.content, a.steps, a.keywords, a.image, a.images, a.pdf_file AS "pdfFile",
           a.view_count AS "viewCount", a.featured, a.published_at AS "publishedAt",
           a.created_at AS "createdAt", a.updated_at AS "updatedAt",
           c.category_name AS "categoryName"

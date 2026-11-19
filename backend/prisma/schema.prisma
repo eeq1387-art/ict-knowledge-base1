@@ -41,7 +41,10 @@ model Article {
   content     String        @db.Text
   steps       Json?
   keywords    String[]      @default([])
+  // Primary cover image (always equal to images[0]) kept for backwards compatibility.
   image       String?       @db.VarChar(1024)
+  // Gallery of 0–5 illustration images; the first one is the cover.
+  images      String[]      @default([])
   pdfFile     String?       @map("pdf_file") @db.VarChar(1024)
   viewCount   Int           @default(0) @map("view_count")
   status      ArticleStatus @default(DRAFT)
