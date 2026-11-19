@@ -179,6 +179,8 @@ export function AdminHome() {
   const { data, loading, error } = useAdminData('/admin/dashboard', refresh)
   const [insightDays, setInsightDays] = useState(30)
   const [selectedMonth, setSelectedMonth] = useState('')
+  const [monthlyPage, setMonthlyPage] = useState(1)
+  const [monthlyPageSize, setMonthlyPageSize] = useState(5)
   const [overviewTab, setOverviewTab] = useState('popular')
   const insights = useAdminData(`/admin/insights?days=${insightDays}`, refresh)
   const monthly = useAdminData(`/admin/reports/monthly${selectedMonth ? `?month=${encodeURIComponent(selectedMonth)}` : ''}`, refresh)
@@ -223,6 +225,12 @@ export function AdminHome() {
   const totalCategoryArticles = Math.max(1, categoryRows.reduce((sum, category) => sum + (category._count?.articles || 0), 0))
   const maxTopTermCount = Math.max(1, ...(insights.data?.topTerms || []).map((item) => item.count || 0))
   const pendingCount = (dashboard.pendingDrafts?.length || 0) + (dashboard.negativeFeedback?.length || 0)
+  const monthlyArticles = monthlyReport.articlesInMonth || []
+  const monthlyTotalCount = monthlyArticles.length
+  const monthlyPageCount = Math.max(1, Math.ceil(monthlyTotalCount / monthlyPageSize))
+  const currentMonthlyPage = Math.min(monthlyPage, monthlyPageCount)
+  const monthlyStartIndex = (currentMonthlyPage - 1) * monthlyPageSize
+  const pagedMonthlyArticles = monthlyArticles.slice(monthlyStartIndex, monthlyStartIndex + monthlyPageSize)
   return <section className="admin-content admin-dashboard">
     <div className="admin-title-row dashboard-header-row">
       <div>
@@ -257,7 +265,7 @@ export function AdminHome() {
               <select
                 aria-label="เลือกเดือนและปีของรายงานประจำเดือน"
                 value={activeMonth}
-                onChange={(event) => setSelectedMonth(event.target.value)}
+                onChange={(event) => { setSelectedMonth(event.target.value); setMonthlyPage(1) }}
               >
                 {(monthlyReport.availableMonths || []).map((m) => (
                   <option key={m.value} value={m.value}>{m.label}</option>
@@ -297,44 +305,70 @@ export function AdminHome() {
             <div className="monthly-articles-block">
               <div className="monthly-subhead">
                 <h3>รายชื่อบทความที่สร้างหรือเผยแพร่ในเดือน {monthlyReport.monthLabel}</h3>
-                <span>{(monthlyReport.articlesInMonth || []).length} รายการ</span>
+                <span>{monthlyTotalCount} รายการ</span>
               </div>
-              {(monthlyReport.articlesInMonth || []).length > 0 ? (
-                <div className="admin-table-wrap">
-                  <table className="admin-table dashboard-table">
-                    <thead>
-                      <tr>
-                        <th>ชื่อบทความ</th>
-                        <th>หมวดหมู่</th>
-                        <th>สถานะ</th>
-                        <th>วันที่เผยแพร่/สร้าง</th>
-                        <th>ยอดเข้าชมเดือนนี้</th>
-                        <th>ยอดเข้าชมสะสม</th>
-                        <th>ไฟล์แนบ</th>
-                        <th>ทางลัด</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {monthlyReport.articlesInMonth.map((article) => (
-                        <tr key={article.articleId}>
-                          <td><b>{article.title}</b></td>
-                          <td><span className="category-chip">{article.category?.categoryName || '—'}</span></td>
-                          <td><StatusBadge status={article.status}/></td>
-                          <td>{dateLabel(article.publishedAt || article.createdAt)}</td>
-                          <td><b className="metric-num">{Number(article.monthViews || 0).toLocaleString('th-TH')}</b> <small>ครั้ง</small></td>
-                          <td>{Number(article.viewCount || 0).toLocaleString('th-TH')} <small>ครั้ง</small></td>
-                          <td>🖼 {article.imagesCount || 0} รูป · {article.hasPdf ? 'PDF' : '—'}</td>
-                          <td>
-                            <div className="admin-row-actions">
-                              <Link to={`/articles/${article.articleId}?preview=1`} target="_blank" rel="opener">ดูหน้าเว็บ</Link>
-                              <Link to={`/admin/articles/${article.articleId}/edit`}>แก้ไข</Link>
-                            </div>
-                          </td>
+              {monthlyTotalCount > 0 ? (
+                <>
+                  <div className="admin-table-wrap">
+                    <table className="admin-table dashboard-table">
+                      <thead>
+                        <tr>
+                          <th>ชื่อบทความ</th>
+                          <th>หมวดหมู่</th>
+                          <th>สถานะ</th>
+                          <th>วันที่เผยแพร่/สร้าง</th>
+                          <th>ยอดเข้าชมเดือนนี้</th>
+                          <th>ยอดเข้าชมสะสม</th>
+                          <th>ไฟล์แนบ</th>
+                          <th>ทางลัด</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {pagedMonthlyArticles.map((article) => (
+                          <tr key={article.articleId}>
+                            <td><b>{article.title}</b></td>
+                            <td><span className="category-chip">{article.category?.categoryName || '—'}</span></td>
+                            <td><StatusBadge status={article.status}/></td>
+                            <td>{dateLabel(article.publishedAt || article.createdAt)}</td>
+                            <td><b className="metric-num">{Number(article.monthViews || 0).toLocaleString('th-TH')}</b> <small>ครั้ง</small></td>
+                            <td>{Number(article.viewCount || 0).toLocaleString('th-TH')} <small>ครั้ง</small></td>
+                            <td>🖼 {article.imagesCount || 0} รูป · {article.hasPdf ? 'PDF' : '—'}</td>
+                            <td>
+                              <div className="admin-row-actions">
+                                <Link to={`/articles/${article.articleId}?preview=1`} target="_blank" rel="opener">ดูหน้าเว็บ</Link>
+                                <Link to={`/admin/articles/${article.articleId}/edit`}>แก้ไข</Link>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="admin-pagination monthly-pagination" aria-label="การแบ่งหน้ารายชื่อบทความประจำเดือน">
+                    <div className="admin-page-summary">
+                      <span>แสดง <b>{monthlyStartIndex + 1}–{Math.min(monthlyStartIndex + monthlyPageSize, monthlyTotalCount)}</b> จากทั้งหมด <b>{monthlyTotalCount}</b> รายการ</span>
+                      <label className="admin-pagesize-picker">
+                        แสดงต่อหน้า
+                        <select value={monthlyPageSize} onChange={(event) => { setMonthlyPageSize(Number(event.target.value)); setMonthlyPage(1) }}>
+                          <option value={5}>5 รายการ</option>
+                          <option value={10}>10 รายการ</option>
+                          <option value={20}>20 รายการ</option>
+                        </select>
+                      </label>
+                    </div>
+                    {monthlyPageCount > 1 && (
+                      <div className="admin-page-controls">
+                        <button type="button" disabled={currentMonthlyPage <= 1} onClick={() => setMonthlyPage(currentMonthlyPage - 1)}>← ก่อนหน้า</button>
+                        <div className="admin-page-numbers">
+                          {Array.from({ length: monthlyPageCount }, (_, idx) => idx + 1).map((num) => (
+                            <button key={num} type="button" className={num === currentMonthlyPage ? 'active' : ''} onClick={() => setMonthlyPage(num)}>{num}</button>
+                          ))}
+                        </div>
+                        <button type="button" disabled={currentMonthlyPage >= monthlyPageCount} onClick={() => setMonthlyPage(currentMonthlyPage + 1)}>ถัดไป →</button>
+                      </div>
+                    )}
+                  </div>
+                </>
               ) : (
                 <p className="dashboard-empty">ไม่มีบทความที่สร้างหรือเผยแพร่ใหม่ในเดือน {monthlyReport.monthLabel}</p>
               )}
