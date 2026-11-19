@@ -90,10 +90,10 @@ function ContactCard({ contact, title = 'ช่องทางติดต่อ
 }
 
 const fallbackFooterCategories = [
-  { categoryId: 1, categoryName: 'ระบบเครือข่ายและอินเทอร์เน็ต' },
-  { categoryId: 2, categoryName: 'คอมพิวเตอร์และอุปกรณ์' },
-  { categoryId: 3, categoryName: 'เครื่องพิมพ์และอุปกรณ์สำนักงาน' },
-  { categoryId: 4, categoryName: 'โปรแกรมและซอฟต์แวร์' },
+  { categoryId: 1, categoryName: 'คอมพิวเตอร์และอุปกรณ์' },
+  { categoryId: 2, categoryName: 'ระบบเครือข่ายและอินเทอร์เน็ต' },
+  { categoryId: 3, categoryName: 'โปรแกรมและซอฟต์แวร์' },
+  { categoryId: 4, categoryName: 'เครื่องพิมพ์และอุปกรณ์ต่อพ่วง' },
   { categoryId: 5, categoryName: 'ระบบสารสนเทศและบริการออนไลน์' },
 ]
 
@@ -368,10 +368,13 @@ function ArticlePage() {
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState('')
   const related = usePublicData(article ? `/articles?category=${article.categoryId}&limit=6` : '')
-  useDocumentTitle(article?.title || (loading ? 'กำลังโหลดบทความ' : 'ไม่พบบทความ'))
   const galleryImages = Array.isArray(article?.images) && article.images.length > 0
     ? article.images.filter(Boolean)
     : article?.image ? [article.image] : []
+  useDocumentTitle(article?.title || (loading ? 'กำลังโหลดบทความ' : 'ไม่พบบทความ'), {
+    description: article?.content ? excerpt(article.content) : '',
+    image: galleryImages[0] ? assetUrl(galleryImages[0]) : '',
+  })
   const rawActiveIndex = imageSelection.id === id ? imageSelection.index : 0
   const activeImageIndex = galleryImages.length > 0 ? Math.min(rawActiveIndex, galleryImages.length - 1) : 0
   const setActiveImageIndex = (index) => setImageSelection({ id, index })

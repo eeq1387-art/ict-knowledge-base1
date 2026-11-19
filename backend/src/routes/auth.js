@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken'
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import { Router } from 'express'
 import { prisma } from '../db.js'
-import { requireAdmin } from '../middleware/requireAdmin.js'
+import { clearAdminPresenceCache, requireAdmin } from '../middleware/requireAdmin.js'
 
 const router = Router()
 const WINDOW_MS = 15 * 60 * 1000
@@ -79,6 +79,7 @@ router.put('/password', requireAdmin, passwordChangeLimiter, async (req, res, ne
     if (!admin) return res.status(401).json({ message: 'ไม่พบบัญชีเจ้าหน้าที่นี้' })
     if (hasCurrent && !(await bcrypt.compare(currentPassword, admin.password))) return res.status(400).json({ message: 'รหัสผ่านปัจจุบันไม่ถูกต้อง' })
     await prisma.admin.update({ where: { adminId: req.admin.adminId }, data: { password: await bcrypt.hash(newPassword, 12) } })
+    clearAdminPresenceCache(req.admin.adminId)
     res.json({ message: 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว' })
   } catch (error) { next(error) }
 })
@@ -87,6 +88,8 @@ router.post('/reset-password', loginIpLimiter, passwordChangeLimiter, async (req
   const username = typeof req.body?.username === 'string' ? req.body.username.trim() : ''
   const fullname = typeof req.body?.fullname === 'string' ? req.body.fullname.trim().replace(/\s+/g, ' ') : ''
   const newPassword = typeof req.body?.newPassword === 'string' ? req.body.newPassword : ''
+  const requiredRecoveryCode = typeof process.env.ADMIN_RECOVERY_CODE === 'string' ? process.env.ADMIN_RECOVERY_CODE.trim() : ''
+  const providedRecoveryCode = typeof req.body?.recoveryCode === 'string' ? req.body.recoveryCode.trim() : ''
   if (!username || username.length > 80 || !fullname || fullname.length > 160) {
     return res.status(400).json({ message: 'กรุณากรอกชื่อผู้ใช้และชื่อ-นามสกุลเจ้าหน้าที่ให้ครบถ้วน' })
   }
@@ -96,11 +99,13 @@ router.post('/reset-password', loginIpLimiter, passwordChangeLimiter, async (req
   try {
     const admin = await prisma.admin.findUnique({ where: { username } })
     const registeredName = (admin?.fullname || '').trim().replace(/\s+/g, ' ')
-    if (!admin || registeredName.toLowerCase() !== fullname.toLowerCase()) {
+    const codeMismatch = Boolean(requiredRecoveryCode && providedRecoveryCode !== requiredRecoveryCode)
+    if (!admin || registeredName.toLowerCase() !== fullname.toLowerCase() || codeMismatch) {
       await bcrypt.compare(newPassword, DUMMY_PASSWORD_HASH)
       return res.status(400).json({ message: 'ข้อมูลยืนยันตัวตนไม่ตรงกับบัญชีเจ้าหน้าที่ในระบบ' })
     }
     await prisma.admin.update({ where: { adminId: admin.adminId }, data: { password: await bcrypt.hash(newPassword, 12) } })
+    clearAdminPresenceCache(admin.adminId)
     res.json({ message: 'ตั้งรหัสผ่านใหม่เรียบร้อยแล้ว สามารถใช้เข้าสู่ระบบได้ทันที' })
   } catch (error) { next(error) }
 })

@@ -69,7 +69,7 @@ async function buildMonthlyReport(rawMonth) {
       where: {
         OR: [
           { publishedAt: { gte: tsStart, lt: tsEnd } },
-          { createdAt: { gte: tsStart, lt: tsEnd } },
+          { publishedAt: null, createdAt: { gte: tsStart, lt: tsEnd } },
         ],
       },
       orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
@@ -199,8 +199,8 @@ async function buildMonthlyReport(rawMonth) {
     monthSet.add(d.toISOString().slice(0, 7))
   }
   for (const item of allArticleDates) {
-    if (item.publishedAt) monthSet.add(bangkokDay(item.publishedAt).toISOString().slice(0, 7))
-    if (item.createdAt) monthSet.add(bangkokDay(item.createdAt).toISOString().slice(0, 7))
+    const effectiveDate = item.publishedAt || item.createdAt
+    if (effectiveDate) monthSet.add(bangkokDay(effectiveDate).toISOString().slice(0, 7))
   }
   if (earliestDailyView?.day) {
     monthSet.add(earliestDailyView.day.toISOString().slice(0, 7))

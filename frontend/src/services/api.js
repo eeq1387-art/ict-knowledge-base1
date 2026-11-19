@@ -26,10 +26,22 @@ export function clearAdminToken() {
   try { window.sessionStorage.removeItem('ict-admin-token') } catch { /* Storage may be blocked. */ }
 }
 
-export function useDocumentTitle(title) {
+export function useDocumentTitle(title, meta = {}) {
+  const { description = '', image = '' } = meta
   useEffect(() => {
-    document.title = title ? `${title} | คลังความรู้ ICT ศูนย์ ICT ขอนแก่น` : 'คลังความรู้ ICT | ศูนย์ ICT ขอนแก่น'
-  }, [title])
+    const fullTitle = title ? `${title} | คลังความรู้ ICT ศูนย์ ICT ขอนแก่น` : 'คลังความรู้ ICT | ศูนย์ ICT ขอนแก่น'
+    document.title = fullTitle
+    const setMeta = (selector, content) => {
+      const el = document.querySelector(selector)
+      if (el && content) el.setAttribute('content', content)
+    }
+    setMeta('meta[property="og:title"]', fullTitle)
+    setMeta(
+      'meta[property="og:description"]',
+      description || 'บริการข้อมูลคู่มือการใช้งานคอมพิวเตอร์ เครือข่าย อุปกรณ์สำนักงาน และระบบสารสนเทศ ศูนย์พัฒนาทักษะและการเรียนรู้ ICT เทศบาลนครขอนแก่น'
+    )
+    setMeta('meta[property="og:image"]', image || `${window.location.origin}/logo-kkict.svg`)
+  }, [title, description, image])
 }
 
 client.interceptors.request.use((config) => {

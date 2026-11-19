@@ -23,6 +23,11 @@ function cacheAdminPresence(adminId, exists) {
   adminPresenceCache.set(adminId, { exists, expiresAt: Date.now() + ADMIN_CACHE_TTL_MS })
 }
 
+export function clearAdminPresenceCache(adminId) {
+  if (adminId !== undefined) adminPresenceCache.delete(Number(adminId))
+  else adminPresenceCache.clear()
+}
+
 export async function requireAdmin(req, res, next) {
   const authHeader = req.get('authorization') || ''
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''

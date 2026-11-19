@@ -465,11 +465,14 @@ async function main() {
 
     const existing = await prisma.article.findFirst({
       where: { title: guide.title },
-      select: { articleId: true, viewCount: true, images: true },
+      select: { articleId: true, viewCount: true, image: true, images: true, pdfFile: true },
     })
     const effectiveViews = zeroStats ? 0 : keepStats ? (existing?.viewCount ?? 0) : views
+    const isSeedFile = (url) => typeof url === 'string' && url.startsWith('/uploads/00000000-0000-4000-8000-')
+    const primaryImage = existing?.image && !isSeedFile(existing.image) ? existing.image : media.imageUrl
     const existingExtras = Array.isArray(existing?.images) ? existing.images.slice(1) : []
-    const galleryImages = [media.imageUrl, ...existingExtras.filter((url) => url && url !== media.imageUrl)].slice(0, 5)
+    const galleryImages = [primaryImage, ...existingExtras.filter((url) => url && url !== primaryImage && !isSeedFile(url))].slice(0, 5)
+    const primaryPdf = existing?.pdfFile && !isSeedFile(existing.pdfFile) ? existing.pdfFile : media.pdfUrl
     const data = {
       ...fields,
       categoryId,
@@ -477,7 +480,7 @@ async function main() {
       steps,
       image: galleryImages[0] || null,
       images: galleryImages,
-      pdfFile: media.pdfUrl,
+      pdfFile: primaryPdf,
       viewCount: effectiveViews,
       status,
       featured: Boolean(guide.featured),

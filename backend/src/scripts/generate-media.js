@@ -118,7 +118,9 @@ export async function generateGuideMedia(guides) {
       category: guide.category,
       title: guide.title,
       intro: guide.intro,
+      causes: guide.causes || '',
       detail: guide.detail || '',
+      tips: guide.tips || '',
       steps: guide.steps || [],
       featured: Boolean(guide.featured),
       imagePath: path.join(uploadDir, imageName),
@@ -139,6 +141,22 @@ Add-Type -AssemblyName System.Drawing
 
 $items = Get-Content -Raw -Encoding UTF8 $ManifestFile | ConvertFrom-Json
 $fontName = 'Leelawadee UI'
+
+function Format-BoxText([string]$text, [int]$maxLen) {
+  if ([string]::IsNullOrWhiteSpace($text)) { return '' }
+  $clean = ($text -replace '\\s+', ' ').Trim()
+  if ($clean.Length -le $maxLen) { return $clean }
+  $cut = $clean.Substring(0, $maxLen)
+  $lastSpace = $cut.LastIndexOf(' ')
+  if ($lastSpace -gt ($maxLen - 22)) {
+    $cut = $cut.Substring(0, $lastSpace)
+  }
+  return ($cut.TrimEnd() + '...')
+}
+
+$sfWrap = New-Object System.Drawing.StringFormat
+$sfWrap.Trimming = [System.Drawing.StringTrimming]::EllipsisCharacter
+$sfWrap.FormatFlags = [System.Drawing.StringFormatFlags]::LineLimit
 
 foreach ($item in $items) {
   # 1. Generate 1200x675 Cover PNG
@@ -181,9 +199,10 @@ foreach ($item in $items) {
   $fAgency = New-Object System.Drawing.Font($fontName, 15, [System.Drawing.FontStyle]::Bold)
   $fSub = New-Object System.Drawing.Font($fontName, 12, [System.Drawing.FontStyle]::Regular)
   $fCat = New-Object System.Drawing.Font($fontName, 14, [System.Drawing.FontStyle]::Bold)
-  $fTitle = New-Object System.Drawing.Font($fontName, 30, [System.Drawing.FontStyle]::Bold)
+  $fTitle = New-Object System.Drawing.Font($fontName, 28, [System.Drawing.FontStyle]::Bold)
   $fStepHead = New-Object System.Drawing.Font($fontName, 14, [System.Drawing.FontStyle]::Bold)
-  $fStep = New-Object System.Drawing.Font($fontName, 13, [System.Drawing.FontStyle]::Regular)
+  $fIntro = New-Object System.Drawing.Font($fontName, 13, [System.Drawing.FontStyle]::Regular)
+  $fStep = New-Object System.Drawing.Font($fontName, 11.5, [System.Drawing.FontStyle]::Regular)
 
   $g.DrawString('ICT', $fLogo, $whiteBrush, 73, 62)
   $g.DrawString('ศูนย์พัฒนาทักษะและการเรียนรู้ ICT เทศบาลนครขอนแก่น', $fAgency, $goldTextBrush, 142, 50)
@@ -196,34 +215,35 @@ foreach ($item in $items) {
   $g.DrawString($item.category, $fCat, $darkTealBrush, 78, 148)
 
   # Guide title (wrapped in left column)
-  $titleRect = New-Object System.Drawing.RectangleF(64, 204, 650, 175)
-  $g.DrawString($item.title, $fTitle, $whiteBrush, $titleRect)
+  $titleRect = New-Object System.Drawing.RectangleF(64, 198, 650, 175)
+  $g.DrawString($item.title, $fTitle, $whiteBrush, $titleRect, $sfWrap)
 
   # Intro excerpt in left column
-  $introRect = New-Object System.Drawing.RectangleF(64, 388, 640, 195)
-  $g.DrawString($item.intro, $fStep, $mutedWhiteBrush, $introRect)
+  $introRect = New-Object System.Drawing.RectangleF(64, 382, 640, 205)
+  $g.DrawString((Format-BoxText $item.intro 250), $fIntro, $mutedWhiteBrush, $introRect, $sfWrap)
 
   # Footer caption on cover
   $g.DrawString(('เอกสารคู่มือมาตรฐาน ลำดับที่ #' + $item.index + ' · บริการประชาชนและบุคลากร'), $fSub, $goldTextBrush, 64, 610)
 
   # Right-side white preview card showing key steps
   $cardBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(250, 255, 254, 250))
-  $g.FillRectangle($cardBrush, 748, 130, 392, 470)
-  $g.FillRectangle($goldBrush, 748, 130, 392, 8)
+  $g.FillRectangle($cardBrush, 748, 126, 396, 480)
+  $g.FillRectangle($goldBrush, 748, 126, 396, 8)
   $tealBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 15, 76, 92))
   $inkBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 27, 42, 51))
   $stepBgBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 232, 242, 243))
 
-  $g.DrawString('สรุปขั้นตอนการปฏิบัติ (Step-by-step)', $fStepHead, $tealBrush, 774, 158)
-  $y = 204
+  $g.DrawString('สรุปขั้นตอนการปฏิบัติ (Step-by-step)', $fStepHead, $tealBrush, 772, 152)
+  $y = 196
   $maxSteps = [Math]::Min(4, $item.steps.Count)
   for ($s = 0; $s -lt $maxSteps; $s++) {
-    $g.FillRectangle($stepBgBrush, 774, $y, 340, 82)
-    $g.FillEllipse($tealBrush, 786, ($y + 14), 30, 30)
-    $g.DrawString([string]($s + 1), $fStepHead, $whiteBrush, 795, ($y + 16))
-    $sRect = New-Object System.Drawing.RectangleF(826, ($y + 10), 278, 66)
-    $g.DrawString($item.steps[$s], $fStep, $inkBrush, $sRect)
-    $y += 94
+    $g.FillRectangle($stepBgBrush, 772, $y, 348, 86)
+    $g.FillEllipse($tealBrush, 784, ($y + 14), 30, 30)
+    $g.DrawString([string]($s + 1), $fStepHead, $whiteBrush, 793, ($y + 16))
+    $sRect = New-Object System.Drawing.RectangleF(824, ($y + 8), 286, 72)
+    $stepPreview = Format-BoxText ([string]$item.steps[$s]) 92
+    $g.DrawString($stepPreview, $fStep, $inkBrush, $sRect, $sfWrap)
+    $y += 96
   }
 
   $bmp.Save($item.imagePath, [System.Drawing.Imaging.ImageFormat]::Png)
@@ -249,41 +269,47 @@ foreach ($item in $items) {
     $pg.FillRectangle($hdrBrush, $hdrRect)
     $pg.FillRectangle($goldBrush, 0, 190, 1240, 10)
 
-    $pfTitle = New-Object System.Drawing.Font($fontName, 26, [System.Drawing.FontStyle]::Bold)
+    $pfTitle = New-Object System.Drawing.Font($fontName, 24, [System.Drawing.FontStyle]::Bold)
     $pfSub = New-Object System.Drawing.Font($fontName, 15, [System.Drawing.FontStyle]::Regular)
-    $pfH2 = New-Object System.Drawing.Font($fontName, 19, [System.Drawing.FontStyle]::Bold)
-    $pfBody = New-Object System.Drawing.Font($fontName, 15, [System.Drawing.FontStyle]::Regular)
+    $pfH2 = New-Object System.Drawing.Font($fontName, 18, [System.Drawing.FontStyle]::Bold)
+    $pfBody = New-Object System.Drawing.Font($fontName, 13.5, [System.Drawing.FontStyle]::Regular)
 
     $pg.DrawString('เอกสารคู่มือมาตรฐานคลังความรู้ด้านเทคโนโลยีสารสนเทศ (KKICT)', $fAgency, $goldTextBrush, 80, 46)
     $pg.DrawString('ศูนย์พัฒนาทักษะและการเรียนรู้ ICT เทศบาลนครขอนแก่น · www.kkict.net', $pfSub, $whiteBrush, 80, 86)
     $pg.DrawString(('หมวดหมู่: ' + $item.category + '   |   รหัสเอกสาร: KKICT-KB-' + ([string]$item.index).PadLeft(3, '0')), $fSub, $mutedWhiteBrush, 80, 130)
 
     # Document Title
-    $docTitleRect = New-Object System.Drawing.RectangleF(80, 236, 1080, 110)
-    $pg.DrawString($item.title, $pfTitle, $darkTealBrush, $docTitleRect)
-    $pg.FillRectangle($goldBrush, 80, 348, 120, 6)
+    $docTitleRect = New-Object System.Drawing.RectangleF(80, 224, 1080, 100)
+    $pg.DrawString($item.title, $pfTitle, $darkTealBrush, $docTitleRect, $sfWrap)
+    $pg.FillRectangle($goldBrush, 80, 326, 120, 6)
 
-    # Intro box
+    # Intro & context box (includes Intro, Causes, Detail, and Tips)
     $boxBrush = [System.Drawing.Brushes]::White
     $borderPen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(255, 214, 208, 196), 2)
-    $pg.FillRectangle($boxBrush, 80, 378, 1080, 260)
-    $pg.DrawRectangle($borderPen, 80, 378, 1080, 260)
-    $pg.DrawString('1. บทนำและคำแนะนำเบื้องต้น', $pfH2, $tealBrush, 108, 400)
-    $introBodyRect = New-Object System.Drawing.RectangleF(108, 444, 1024, 180)
-    $pg.DrawString(($item.intro + [Environment]::NewLine + [Environment]::NewLine + $item.detail), $pfBody, $inkBrush, $introBodyRect)
+    $pg.FillRectangle($boxBrush, 80, 350, 1080, 355)
+    $pg.DrawRectangle($borderPen, 80, 350, 1080, 355)
+    $pg.DrawString('1. บทนำ สาเหตุข้อสังเกต และข้อควรทราบก่อนดำเนินการ', $pfH2, $tealBrush, 108, 368)
+    $introLines = @()
+    if ($item.intro) { $introLines += ('• เกริ่นนำ: ' + (Format-BoxText $item.intro 220)) }
+    if ($item.causes) { $introLines += ('• สาเหตุที่พบบ่อย: ' + (Format-BoxText $item.causes 210)) }
+    if ($item.detail) { $introLines += ('• ข้อควรทราบ: ' + (Format-BoxText $item.detail 210)) }
+    if ($item.tips) { $introLines += ('• คำแนะนำเพิ่มเติม: ' + (Format-BoxText $item.tips 210)) }
+    $introCombined = [string]::Join([Environment]::NewLine + [Environment]::NewLine, $introLines)
+    $introBodyRect = New-Object System.Drawing.RectangleF(108, 408, 1024, 285)
+    $pg.DrawString($introCombined, $pfBody, $inkBrush, $introBodyRect, $sfWrap)
 
     # Steps section
-    $pg.DrawString('2. ขั้นตอนการปฏิบัติ (Step-by-step)', $pfH2, $tealBrush, 80, 668)
-    $sy = 716
+    $pg.DrawString('2. ขั้นตอนการปฏิบัติ (Step-by-step)', $pfH2, $tealBrush, 80, 726)
+    $sy = 770
     for ($i = 0; $i -lt $item.steps.Count; $i++) {
-      $pg.FillRectangle($boxBrush, 80, $sy, 1080, 122)
-      $pg.DrawRectangle($borderPen, 80, $sy, 1080, 122)
-      $pg.FillRectangle($tealBrush, 80, $sy, 10, 122)
-      $pg.FillEllipse($tealBrush, 112, ($sy + 36), 48, 48)
-      $pg.DrawString([string]($i + 1), $pfH2, $whiteBrush, 126, ($sy + 42))
-      $stepTextRect = New-Object System.Drawing.RectangleF(180, ($sy + 24), 950, 84)
-      $pg.DrawString($item.steps[$i], $pfBody, $inkBrush, $stepTextRect)
-      $sy += 138
+      $pg.FillRectangle($boxBrush, 80, $sy, 1080, 126)
+      $pg.DrawRectangle($borderPen, 80, $sy, 1080, 126)
+      $pg.FillRectangle($tealBrush, 80, $sy, 10, 126)
+      $pg.FillEllipse($tealBrush, 112, ($sy + 38), 46, 46)
+      $pg.DrawString([string]($i + 1), $pfH2, $whiteBrush, 126, ($sy + 44))
+      $stepTextRect = New-Object System.Drawing.RectangleF(178, ($sy + 18), 954, 92)
+      $pg.DrawString((Format-BoxText ([string]$item.steps[$i]) 240), $pfBody, $inkBrush, $stepTextRect, $sfWrap)
+      $sy += 140
     }
 
     # Footer
